@@ -60,7 +60,7 @@ CREATE TABLE `checkup_institutions`  (
 -- Table structure for checkup_items
 -- ----------------------------
 DROP TABLE IF EXISTS `checkup_items`;
-CREATE TABLE `checkup_items`  (
+CREATE TABLE `checkup_items` (
   `item_id` int(11) NOT NULL,
   `item_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   PRIMARY KEY (`item_id`) USING BTREE
