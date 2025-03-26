@@ -1,5 +1,7 @@
 app:
   name: HealthCare
+  version: 0.0.1
+  author: "drewjin"
   port: :3000
 
 database:
