@@ -6,7 +6,7 @@ import (
 
 type User struct {
 	gorm.Model
-	Username string `gorm:"type:varchar(50);not null;->;<-:create;column:username"`
+	Username string `gorm:"type:varchar(50);not null;unique;->;<-:create;column:username"`
 	Password string `gorm:"type:varchar(255);not null;->;<-:create;column:password"`
 	Name     string `gorm:"type:varchar(50);not null;<-:create;column:name"`
 	Gender   string `gorm:"type:char(1);not null;->;<-:create;column:gender"`
