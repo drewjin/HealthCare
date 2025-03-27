@@ -13,5 +13,6 @@ func SetupUserRouter(router *gin.Engine) {
 	{
 		user.GET("/users/:id/profile", controllers.GetUserProfileByID)
 		user.PUT("/users/:id/reset_pwd", controllers.ResetPwd)
+		user.POST("/users/:id/relate")
 	}
 }

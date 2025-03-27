@@ -11,5 +11,7 @@ func SetupAuthRouter(router *gin.Engine) {
 	{
 		auth.POST("/login", controllers.Login)
 		auth.POST("/register", controllers.Register)
+		// TODO: Implement other authentication routes here
+		// EMail and Phone verification
 	}
 }
