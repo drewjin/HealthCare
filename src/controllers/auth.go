@@ -71,7 +71,6 @@ func Login(ctx *gin.Context) {
 		Password string `json:"password"`
 	}
 
-	// Bind the incoming JSON data to the input struct
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -79,8 +78,8 @@ func Login(ctx *gin.Context) {
 		return
 	}
 
-	// Find the user by username
 	var user models.User
+
 	if err := global.DB.Where("username = ?", input.Username).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusNotFound, gin.H{

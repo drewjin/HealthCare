@@ -12,6 +12,6 @@ func SetupUserRouter(router *gin.Engine) {
 	user.Use(middlewares.AuthMiddleWare())
 	{
 		user.GET("/users/:id/profile", controllers.GetUserProfileByID)
-		user.PUT("/reset-pwd", controllers.ResetPwd)
+		user.PUT("/users/:id/reset_pwd", controllers.ResetPwd)
 	}
 }
