@@ -142,11 +142,3 @@ func ResetPwd(ctx *gin.Context) {
 		"logout":  true, // Frontend should redirect to login page
 	})
 }
-
-func RelateUser(ctx *gin.Context) {
-
-}
-
-func GetUserInfo(ctx *gin.Context) {
-
-}

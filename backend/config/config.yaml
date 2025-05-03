@@ -1,0 +1,28 @@
+app:
+  name: HealthCare
+  version: 0.0.1
+  author: "drewjin"
+  port: :3000
+
+database:
+  dsn: "root:12345678@tcp(127.0.0.1:3306)/healthcare_db?charset=utf8mb4&parseTime=True&loc=Local"
+  max_idle_conns: 11
+  max_open_conns: 114
+
+relations:
+  - "Father-Son"
+  - "Father-Daughter"
+  - "Mother-Son"
+  - "Mother-Daughter"
+  - "GrandFather-GrandSon"
+  - "GrandFather-GrandDaughter"
+  - "GrandMother-GrandSon"
+  - "GrandMother-GrandDaughter"
+
+email:
+  host: "smtp.163.com"
+  port: 465
+  server_email: "Healthcare_SHU@163.com"
+  password: "Healthcare2025"
+  from: "Healthcare_SHU@163.com"
+  from_name: "Healthcare_SHU"
