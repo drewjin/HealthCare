@@ -1,13 +1,14 @@
 app:
-  name: HealthCare
-  version: 0.0.1
+  name: "HealthCare"
+  version: "0.0.1"
   author: "drewjin"
-  port: :3000
+  backend-port: "3000"
+  frontend-port: "5173"
 
 database:
   dsn: "root:12345678@tcp(127.0.0.1:3306)/healthcare_db?charset=utf8mb4&parseTime=True&loc=Local"
-  max_idle_conns: 11
-  max_open_conns: 114
+  max-idle-conns: 11
+  max-open-conns: 114
 
 relations:
   - "Father-Son"
@@ -22,7 +23,7 @@ relations:
 email:
   host: "smtp.163.com"
   port: 465
-  server_email: "Healthcare_SHU@163.com"
+  server-email: "Healthcare_SHU@163.com"
   password: "Healthcare2025"
   from: "Healthcare_SHU@163.com"
-  from_name: "Healthcare_SHU"
+  from-name: "Healthcare_SHU"

@@ -1,10 +1,18 @@
 package routers
 
-import "github.com/gin-gonic/gin"
+import (
+	"healthcare/middlewares"
+
+	"github.com/gin-gonic/gin"
+)
 
 func SetupRouter() *gin.Engine {
 	routers := gin.Default()
-	SetupAuthRouter(routers)
-	SetupUserRouter(routers)
+
+	routers.Use(middlewares.SetupCorsMiddleware())
+	{
+		SetupAuthRouter(routers)
+		SetupUserRouter(routers)
+	}
 	return routers
 }
