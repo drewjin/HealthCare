@@ -42,14 +42,6 @@ func Register(ctx *gin.Context) {
 		return
 	}
 
-	// Migrate the user model
-	if err := global.DB.AutoMigrate(&user); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
 	// Create the user
 	if err := global.DB.Create(&user).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
