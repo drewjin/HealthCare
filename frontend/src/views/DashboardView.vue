@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElContainer, ElAside, ElMain, ElHeader, ElMenu, ElMenuItem, ElCard, ElAvatar, ElRow, ElCol, ElButton, ElDivider } from 'element-plus'
+import { ElContainer, ElAside, ElMain, ElHeader, ElMenu, ElMenuItem, ElCard, ElAvatar, ElRow, ElCol, ElButton, ElDivider, ElForm, ElFormItem, ElInput, ElMessage, ElDialog } from 'element-plus'
 import { User, List, Setting } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -15,6 +15,13 @@ const userInfo = ref({
   gender: '',
   birthday: '',
   address: '',
+})
+
+const showResetPwdDialog = ref(false)
+const resetPwdForm = ref({
+  prevPassword: '',
+  newPassword: '',
+  newPasswordConfirm: ''
 })
 
 onMounted(async () => {
@@ -45,6 +52,37 @@ const handleLogout = () => {
 
 const handleGoToProfile = () => {
   activeMenu.value = '1'
+}
+
+const handleResetPwd = async () => {
+  try {
+    if (resetPwdForm.value.newPassword !== resetPwdForm.value.newPasswordConfirm) {
+      ElMessage.error('新密码不一致')
+      return
+    }
+
+    const response = await fetch(`http://localhost:3000/api/users/${uid.value}/reset_pwd`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': localStorage.getItem('jwt') || ''
+      },
+      body: JSON.stringify({
+        prev_password: resetPwdForm.value.prevPassword,
+        new_password: resetPwdForm.value.newPassword,
+        new_password_confirm: resetPwdForm.value.newPasswordConfirm
+      })
+    })
+
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error)
+
+    ElMessage.success('密码修改成功，请重新登录')
+    handleLogout()
+  } catch (error) {
+    console.error(error)
+    ElMessage.error(error instanceof Error ? error.message : '密码修改失败')
+  }
 }
 </script>
 
@@ -80,7 +118,7 @@ const handleGoToProfile = () => {
           </ElMenuItem>
           <ElMenuItem index="3">
             <el-icon><Setting /></el-icon>
-            <span>系统设置</span>
+            <span>修改密码</span>
           </ElMenuItem>
         </ElMenu>
       </ElAside>
@@ -95,6 +133,7 @@ const handleGoToProfile = () => {
                   <ElAvatar :size="100" src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png" />
                   <h3>{{ userInfo.name }}</h3>
                   <p>ID: {{ uid }}</p>
+                  <ElButton type="primary" @click="showResetPwdDialog = true">修改密码</ElButton>
                 </div>
               </ElCard>
             </ElCol>
@@ -139,6 +178,34 @@ const handleGoToProfile = () => {
               </ElCard>
             </ElCol>
           </ElRow>
+
+          <!-- 修改密码对话框 -->
+          <ElDialog
+            v-model="showResetPwdDialog"
+            title="修改密码"
+            width="30%"
+            :close-on-click-modal="false"
+          >
+            <ElForm :model="resetPwdForm" label-width="100px">
+              <ElFormItem label="当前密码">
+                <ElInput v-model="resetPwdForm.prevPassword" type="password" show-password />
+              </ElFormItem>
+              <ElFormItem label="新密码">
+                <ElInput v-model="resetPwdForm.newPassword" type="password" show-password />
+              </ElFormItem>
+              <ElFormItem label="确认新密码">
+                <ElInput v-model="resetPwdForm.newPasswordConfirm" type="password" show-password />
+              </ElFormItem>
+            </ElForm>
+            <template #footer>
+              <span class="dialog-footer">
+                <ElButton @click="showResetPwdDialog = false">取消</ElButton>
+                <ElButton type="primary" @click="handleResetPwd">
+                  确认修改
+                </ElButton>
+              </span>
+            </template>
+          </ElDialog>
         </div>
 
         <!-- 健康记录面板 -->
@@ -230,5 +297,17 @@ const handleGoToProfile = () => {
 
 .el-divider {
   margin: 8px 0;
+}
+
+.settings-container {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 </style>
