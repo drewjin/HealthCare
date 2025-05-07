@@ -38,4 +38,25 @@ const count = ref(0)
 .read-the-docs {
   color: #888;
 }
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.8em;
+  }
+
+  .card {
+    padding: 1em;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.5em;
+  }
+
+  .card {
+    padding: 0.8em;
+  }
+}
 </style>
