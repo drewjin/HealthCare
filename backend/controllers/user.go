@@ -12,12 +12,11 @@ import (
 )
 
 func GetUserProfileByID(ctx *gin.Context) {
-	// Getting the user ID from the context
 	user_id := ctx.Param("id")
 
-	// Query the user record from the database
 	var user models.User
-	if err := global.DB.Where("id = ?", user_id).First(&user).Error; err != nil {
+	if err := global.DB.Select("id, username, name, email, phone, gender, birthday, address").
+		Where("id = ?", user_id).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusNotFound, gin.H{
 				"error": err.Error(),
@@ -51,7 +50,6 @@ func GetUserProfileByID(ctx *gin.Context) {
 		Address:  user.Address,
 	}
 
-	// Return the user record as JSON
 	ctx.JSON(http.StatusOK, gin.H{
 		"data": profile,
 	})

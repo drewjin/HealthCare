@@ -118,7 +118,7 @@ const handleResetPwd = async () => {
           </ElMenuItem>
           <ElMenuItem index="3">
             <el-icon><Setting /></el-icon>
-            <span>修改密码</span>
+            <span>系统设置</span>
           </ElMenuItem>
         </ElMenu>
       </ElAside>
