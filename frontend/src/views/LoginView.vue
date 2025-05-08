@@ -13,14 +13,22 @@ const loginForm = ref({
 const registerForm = ref({
   username: '',
   password: '',
-  confirmPassword: '', // 添加确认密码字段
+  confirmPassword: '',
   name: '',
-  gender: 'M', // 设置默认值为 M
+  gender: 'M',
   birthday: '',
   phone: '',
   email: '',
-  address: ''
+  address: '',
+  user_type: 1, // Default as normal user
 })
+
+// Add userTypeOptions
+const userTypeOptions = [
+  { value: 1, label: '普通用户' },
+  { value: 2, label: '管理员用户' },
+  { value: 3, label: '机构用户' },
+]
 
 const handleLogin = async () => {
   try {
@@ -114,13 +122,14 @@ const toggleMode = () => {
   registerForm.value = {
     username: '',
     password: '',
-    confirmPassword: '', // 重置时也清空确认密码
+    confirmPassword: '',
     name: '',
-    gender: 'M',  // 重置时也设置默认值
+    gender: 'M',
     birthday: '',
     phone: '',
     email: '',
-    address: ''
+    address: '',
+    user_type: 1, // Reset to default user type
   }
 }
 </script>
@@ -153,20 +162,17 @@ const toggleMode = () => {
             <label>密码</label>
             <input v-model="registerForm.password" type="password" required>
           </div>
-        </div>
-
-        <div class="form-row">
           <div class="form-group">
             <label>确认密码</label>
             <input v-model="registerForm.confirmPassword" type="password" required>
           </div>
+        </div>
+
+        <div class="form-row">
           <div class="form-group">
             <label>姓名</label>
             <input v-model="registerForm.name" type="text" required>
           </div>
-        </div>
-
-        <div class="form-row">
           <div class="form-group">
             <label>性别</label>
             <select v-model="registerForm.gender" required>
@@ -176,24 +182,32 @@ const toggleMode = () => {
             </select>
           </div>
           <div class="form-group">
-            <label>手机号码</label>
-            <input v-model="registerForm.phone" type="tel" required maxlength="11" 
-                   pattern="[0-9]{11}" placeholder="请输入11位手机号">
+            <label>生日</label>
+            <input v-model="registerForm.birthday" type="date" required>
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
-            <label>生日</label>
-            <input v-model="registerForm.birthday" type="date" required>
+            <label>手机号码</label>
+            <input v-model="registerForm.phone" type="tel" required maxlength="11" 
+                   pattern="[0-9]{11}" placeholder="请输入11位手机号">
           </div>
           <div class="form-group">
             <label>邮箱 (选填)</label>
             <input v-model="registerForm.email" type="email" placeholder="请输入邮箱地址">
           </div>
+          <div class="form-group">
+            <label>用户类型</label>
+            <select v-model="registerForm.user_type" required>
+              <option v-for="option in userTypeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </div>
         </div>
 
-        <div class="form-row">
+        <div class="form-row single-column">
           <div class="form-group">
             <label>地址 (选填)</label>
             <input v-model="registerForm.address" type="text" placeholder="请输入地址">
@@ -310,49 +324,53 @@ button:hover {
 }
 
 .register-form {
-  max-width: 800px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 1rem;
   margin-bottom: 1rem;
 }
 
+.form-row.single-column {
+  grid-template-columns: 1fr;
+}
+
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 0.8rem;
 }
 
 .form-group input,
 .form-group select {
   width: 100%;
-  padding: 0.8rem;
-  margin-top: 0.5rem;
+  padding: 0.6rem;
+  margin-top: 0.3rem;
   border: 1px solid #ddd;
   border-radius: 6px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   box-sizing: border-box;
 }
 
 .form-group select {
   background-color: white;
-  height: 2.8rem;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+  height: 2.5rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.2rem;
   color: #495057;
   font-weight: 500;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .form-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 640px) {

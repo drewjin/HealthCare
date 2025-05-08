@@ -29,7 +29,7 @@ func InitDB() {
 	}
 
 	// 自动迁移数据库表
-	err = db.AutoMigrate(&models.User{}, &models.Family{})
+	err = db.AutoMigrate(&models.User{}, &models.Family{}, &models.Institution{})
 	if err != nil {
 		log.Fatalf("Failed to migrate database tables, got error: %v", err)
 	}

@@ -22,6 +22,14 @@ func Register(ctx *gin.Context) {
 		return
 	}
 
+	// Validate user type
+	if user.UserType < 1 || user.UserType > 3 {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid user type. Must be 1 (normal), 2 (admin), or 3 (institution)",
+		})
+		return
+	}
+
 	// Hash the password
 	hashedPwd, err := utils.HashPassword(user.Password)
 	if err != nil {
@@ -33,8 +41,8 @@ func Register(ctx *gin.Context) {
 
 	user.Password = hashedPwd
 
-	// Generate a JWT token
-	token, err := utils.GenerateJWT(user.Username)
+	// Generate a JWT token with user type
+	token, err := utils.GenerateJWT(user.Username, user.UserType)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -50,9 +58,11 @@ func Register(ctx *gin.Context) {
 		return
 	}
 
-	// Send the JWT token
+	// Send the JWT token, user ID, and user type
 	ctx.JSON(http.StatusOK, gin.H{
-		"token": token,
+		"token":     token,
+		"uid":       user.ID,
+		"user_type": user.UserType,
 	})
 }
 
@@ -92,7 +102,8 @@ func Login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := utils.GenerateJWT(user.Username)
+	// Generate token with user type
+	token, err := utils.GenerateJWT(user.Username, user.UserType)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -108,7 +119,8 @@ func Login(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"token": token,
-		"uid":   user.ID,
+		"token":     token,
+		"uid":       user.ID,
+		"user_type": user.UserType,
 	})
 }

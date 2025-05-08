@@ -15,7 +15,7 @@ func GetUserProfileByID(ctx *gin.Context) {
 	user_id := ctx.Param("id")
 
 	var user models.User
-	if err := global.DB.Select("id, username, name, email, phone, gender, birthday, address").
+	if err := global.DB.Select("id, username, name, email, phone, gender, birthday, address, user_type").
 		Where("id = ?", user_id).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusNotFound, gin.H{
@@ -29,7 +29,6 @@ func GetUserProfileByID(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: Add relatives, frontend post-processing needed
 	profile := struct {
 		ID       uint   `json:"id"`
 		Username string `json:"username"`
@@ -39,6 +38,7 @@ func GetUserProfileByID(ctx *gin.Context) {
 		Gender   string `json:"gender"`
 		Birthday string `json:"birthday"`
 		Address  string `json:"address"`
+		UserType uint8  `json:"user_type"`
 	}{
 		ID:       user.ID,
 		Username: user.Username,
@@ -48,6 +48,7 @@ func GetUserProfileByID(ctx *gin.Context) {
 		Gender:   user.Gender,
 		Birthday: user.Birthday,
 		Address:  user.Address,
+		UserType: user.UserType,
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{

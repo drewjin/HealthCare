@@ -14,6 +14,7 @@ type User struct {
 	Phone    string `gorm:"type:varchar(11);not null;column:phone"`
 	Email    string `gorm:"type:varchar(100);column:email"`
 	Address  string `gorm:"type:varchar(255);column:address"`
+	UserType uint8  `gorm:"type:tinyint(1);not null;default:1;column:user_type" json:"user_type"` // 1: normal, 2: admin, 3: institution
 }
 
 type RolePermission struct {

@@ -17,7 +17,7 @@ func AuthMiddleWare() gin.HandlerFunc {
 			ctx.Abort()
 			return
 		}
-		username, err := utils.ParseJWT(token)
+		username, userType, err := utils.ParseJWT(token)
 		if err != nil {
 			ctx.JSON(http.StatusUnauthorized, gin.H{
 				"error": "Invalid Token",
@@ -26,6 +26,7 @@ func AuthMiddleWare() gin.HandlerFunc {
 			return
 		}
 		ctx.Set("username", username)
+		ctx.Set("user_type", userType)
 		ctx.Next()
 	}
 }
