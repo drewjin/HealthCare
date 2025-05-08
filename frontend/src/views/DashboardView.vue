@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElContainer, ElAside, ElMain, ElHeader, ElMenu, ElMenuItem, ElCard, ElAvatar, ElRow, ElCol, ElButton, ElDivider, ElForm, ElFormItem, ElInput, ElMessage, ElDialog } from 'element-plus'
-import { User, List, Setting } from '@element-plus/icons-vue'
+import { ElContainer, ElAside, ElMain, ElHeader, ElMenu, ElMenuItem, ElCard, ElAvatar, ElRow, ElCol, ElButton, ElDivider, ElForm, ElFormItem, ElInput, ElMessage, ElDialog, ElTable, ElTableColumn, ElBadge, ElTimeline, ElTimelineItem, ElSelect, ElOption } from 'element-plus'
+import { User, List, Setting, UserFilled } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const uid = ref(localStorage.getItem('uid'))
@@ -16,19 +16,46 @@ const userInfo = ref({
   birthday: '',
   address: '',
 })
-
 const showResetPwdDialog = ref(false)
 const resetPwdForm = ref({
   prevPassword: '',
   newPassword: '',
   newPasswordConfirm: ''
 })
+const hasPendingRequests = ref(false)
+const familyRequests = ref<Array<{
+  id: number,
+  requester: string,
+  name: string,
+  relationship: string,
+  created_at: string
+}>>([])
+const confirmedFamilyMembers = ref<Array<{
+  username: string,
+  name: string,
+  relationship: string
+}>>([])
+
+const showCreateFamilyDialog = ref(false)
+const familyRequestForm = ref({
+  relative_username: '',
+  relationship: ''
+})
+
+const relationshipOptions = [
+  { value: '父亲', label: '父亲' },
+  { value: '母亲', label: '母亲' },
+  { value: '儿子', label: '儿子' },
+  { value: '女儿', label: '女儿' },
+  { value: '配偶', label: '配偶' },
+]
 
 onMounted(async () => {
   try {
     const token = localStorage.getItem('jwt')
     if (!token) throw new Error('未登录')
 
+    // 获取用户信息
     const response = await fetch(`http://localhost:3000/api/users/${uid.value}/profile`, {
       method: 'GET',
       headers: { Authorization: token },
@@ -38,6 +65,27 @@ onMounted(async () => {
       throw new Error(errorData.error || '获取用户信息失败')
     }
     userInfo.value = (await response.json()).data
+
+    // 获取待处理的家庭关系请求
+    const requestsResponse = await fetch(`http://localhost:3000/api/family/pending/${uid.value}`, {
+      method: 'GET',
+      headers: { Authorization: token },
+    })
+    if (requestsResponse.ok) {
+      const data = await requestsResponse.json()
+      familyRequests.value = data || []
+      hasPendingRequests.value = familyRequests.value && familyRequests.value.length > 0
+    }
+
+    // 获取已确认的家庭关系
+    const confirmedResponse = await fetch(`http://localhost:3000/api/family/confirmed/${uid.value}`, {
+      method: 'GET',
+      headers: { Authorization: token },
+    })
+    if (confirmedResponse.ok) {
+      const data = await confirmedResponse.json()
+      confirmedFamilyMembers.value = data || []
+    }
   } catch (error) {
     console.error(error)
     router.push('/login')
@@ -84,6 +132,63 @@ const handleResetPwd = async () => {
     ElMessage.error(error instanceof Error ? error.message : '密码修改失败')
   }
 }
+
+const handleFamilyRequest = async (requestId: number, accept: boolean) => {
+  try {
+    const token = localStorage.getItem('jwt')
+    if (!token) throw new Error('未登录')
+
+    const response = await fetch(`http://localhost:3000/api/family/handle/${uid.value}/${requestId}`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        Authorization: token 
+      },
+      body: JSON.stringify({ accept })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error)
+    }
+
+    // 更新请求列表
+    familyRequests.value = familyRequests.value.filter(req => req.id !== requestId)
+    hasPendingRequests.value = familyRequests.value.length > 0
+    ElMessage.success(accept ? '已接受请求' : '已拒绝请求')
+  } catch (error) {
+    console.error(error)
+    ElMessage.error(error instanceof Error ? error.message : '处理请求失败')
+  }
+}
+
+const handleCreateFamilyRequest = async () => {
+  try {
+    const token = localStorage.getItem('jwt')
+    if (!token) throw new Error('未登录')
+
+    const response = await fetch(`http://localhost:3000/api/family/request/${uid.value}`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        Authorization: token 
+      },
+      body: JSON.stringify(familyRequestForm.value)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error)
+    }
+
+    ElMessage.success('请求已发送')
+    showCreateFamilyDialog.value = false
+    familyRequestForm.value = { relative_username: '', relationship: '' }
+  } catch (error) {
+    console.error(error)
+    ElMessage.error(error instanceof Error ? error.message : '发送请求失败')
+  }
+}
 </script>
 
 <template>
@@ -92,10 +197,13 @@ const handleResetPwd = async () => {
       <div class="header-content">
         <div class="header-left">
           <h2>健康管理系统</h2>
-          <ElButton type="primary" @click="handleGoToProfile" plain>
-            <el-icon><User /></el-icon>
-            个人信息
-          </ElButton>
+          <div class="notification-wrapper">
+            <ElButton type="primary" @click="handleGoToProfile" plain>
+              <el-icon><User /></el-icon>
+              个人信息
+            </ElButton>
+            <div v-if="hasPendingRequests" class="notification-dot"></div>
+          </div>
         </div>
         <ElButton type="danger" @click="handleLogout">退出登录</ElButton>
       </div>
@@ -118,7 +226,11 @@ const handleResetPwd = async () => {
           </ElMenuItem>
           <ElMenuItem index="3">
             <el-icon><Setting /></el-icon>
-            <span>修改密码</span>
+            <span>系统设置</span>
+          </ElMenuItem>
+          <ElMenuItem index="4">
+            <el-icon><UserFilled /></el-icon>
+            <span>家庭关系</span>
           </ElMenuItem>
         </ElMenu>
       </ElAside>
@@ -232,6 +344,99 @@ const handleResetPwd = async () => {
             <p>系统设置内容将在此显示</p>
           </ElCard>
         </div>
+
+        <!-- 家庭关系面板 -->
+        <div v-if="activeMenu === '4'">
+          <ElRow :gutter="20">
+            <ElCol :span="12">
+              <ElCard shadow="hover">
+                <template #header>
+                  <div class="card-header">
+                    <span>已有家庭关系</span>
+                    <ElButton type="primary" @click="showCreateFamilyDialog = true">添加成员</ElButton>
+                  </div>
+                </template>
+                <div v-if="confirmedFamilyMembers.length > 0">
+                  <ElTable :data="confirmedFamilyMembers" style="width: 100%">
+                    <ElTableColumn prop="username" label="用户名" />
+                    <ElTableColumn prop="name" label="姓名" />
+                    <ElTableColumn prop="relationship" label="关系" />
+                  </ElTable>
+                </div>
+                <div v-else>
+                  <p>暂无已确认的家庭关系。</p>
+                </div>
+              </ElCard>
+            </ElCol>
+            
+            <ElCol :span="12">
+              <ElCard shadow="hover">
+                <template #header>
+                  <div class="card-header">
+                    <span>待处理请求</span>
+                    <ElBadge :value="familyRequests.length" :hidden="!hasPendingRequests">
+                      <ElButton type="primary" plain>查看全部</ElButton>
+                    </ElBadge>
+                  </div>
+                </template>
+                <div v-if="hasPendingRequests">
+                  <ElTimeline>
+                    <ElTimelineItem
+                      v-for="request in familyRequests"
+                      :key="request.id"
+                      :timestamp="request.created_at"
+                      placement="top"
+                    >
+                      <ElCard>
+                        <h4>来自 {{ request.requester }} ({{ request.name }}) 的请求</h4>
+                        <p>关系：{{ request.relationship }}</p>
+                        <div class="request-actions">
+                          <ElButton type="success" size="small" @click="handleFamilyRequest(request.id, true)">接受</ElButton>
+                          <ElButton type="danger" size="small" @click="handleFamilyRequest(request.id, false)">拒绝</ElButton>
+                        </div>
+                      </ElCard>
+                    </ElTimelineItem>
+                  </ElTimeline>
+                </div>
+                <div v-else>
+                  <p>暂无待处理的家庭关系请求。</p>
+                </div>
+              </ElCard>
+            </ElCol>
+          </ElRow>
+
+          <!-- 创建家庭关系请求对话框 -->
+          <ElDialog
+            v-model="showCreateFamilyDialog"
+            title="创建家庭关系请求"
+            width="30%"
+            :close-on-click-modal="false"
+          >
+            <ElForm :model="familyRequestForm" label-width="100px">
+              <ElFormItem label="成员用户名">
+                <ElInput v-model="familyRequestForm.relative_username" />
+              </ElFormItem>
+              <ElFormItem label="关系">
+                <ElSelect v-model="familyRequestForm.relationship" placeholder="请选择关系">
+                  <ElOption
+                    v-for="item in relationshipOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value"
+                  />
+                </ElSelect>
+              </ElFormItem>
+            </ElForm>
+            <template #footer>
+              <span class="dialog-footer">
+                <ElButton @click="showCreateFamilyDialog = false">取消</ElButton>
+                <ElButton type="primary" @click="handleCreateFamilyRequest">
+                  发送请求
+                </ElButton>
+              </span>
+            </template>
+          </ElDialog>
+        </div>
       </ElMain>
     </ElContainer>
   </ElContainer>
@@ -259,6 +464,21 @@ const handleResetPwd = async () => {
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+.notification-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.notification-dot {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 10px;
+  height: 10px;
+  background-color: #f56c6c;
+  border-radius: 50%;
 }
 
 .dashboard-menu {
@@ -309,5 +529,15 @@ const handleResetPwd = async () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.request-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+:deep(.el-timeline-item__content) {
+  width: 100%;
 }
 </style>

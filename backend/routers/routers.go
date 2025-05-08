@@ -13,6 +13,7 @@ func SetupRouter() *gin.Engine {
 	{
 		SetupAuthRouter(routers)
 		SetupUserRouter(routers)
+		SetupFamilyRouter(routers)
 	}
 	return routers
 }
