@@ -141,3 +141,23 @@ func ResetPwd(ctx *gin.Context) {
 		"logout":  true, // Frontend should redirect to login page
 	})
 }
+
+func GetInstitutionByUserId(ctx *gin.Context) {
+	userID := ctx.Param("id")
+
+	var institution models.Institution
+	if err := global.DB.Where("user_id = ?", userID).First(&institution).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{
+				"error": "No institution found for this user",
+			})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, institution)
+}

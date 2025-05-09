@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"healthcare/global"
@@ -161,5 +162,154 @@ func ReviewInstitution(ctx *gin.Context) {
 			true:  "Institution approved successfully",
 			false: "Institution rejected",
 		}[input.Approved],
+	})
+}
+
+func GetAllApprovedInstitutions(ctx *gin.Context) {
+	var institutions []models.Institution
+	if err := global.DB.Where("status = ?", 1).Find(&institutions).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, institutions)
+}
+
+func GetInstitutionDetail(ctx *gin.Context) {
+	institutionID := ctx.Param("id")
+	var institution models.Institution
+
+	if err := global.DB.First(&institution, institutionID).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "Institution not found",
+		})
+		return
+	}
+
+	// 检查请求是否来自管理员
+	username := ctx.GetString("username")
+	var user models.User
+	if err := global.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "User not found",
+		})
+		return
+	}
+
+	// 如果不是管理员，只能看到已批准的机构
+	if user.UserType != 2 && institution.Status != 1 {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error": "You don't have permission to view this institution",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"institution": institution,
+		"isAdmin":     user.UserType == 2,
+	})
+}
+
+func GetInstitutionPackages(ctx *gin.Context) {
+	institutionID := ctx.Param("id")
+	var institution models.Institution
+
+	if err := global.DB.First(&institution, institutionID).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "Institution not found",
+		})
+		return
+	}
+
+	// 只允许查看已批准的机构的套餐
+	if institution.Status != 1 {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error": "This institution is not approved",
+		})
+		return
+	}
+
+	// 获取用户身份
+	username := ctx.GetString("username")
+	var user models.User
+	if err := global.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "User not found",
+		})
+		return
+	}
+
+	// 假设ExaminationPackage字段存储了JSON格式的套餐信息
+	// 实际应用中，这里可能需要解析JSON或从其他表中查询
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"institution": institution,
+		"isAdmin":     user.UserType == 2,
+		"packages":    institution.ExaminationPackage,
+	})
+}
+
+func UpdateInstitutionPackages(ctx *gin.Context) {
+	institutionID := ctx.Param("id")
+	var institution models.Institution
+
+	if err := global.DB.First(&institution, institutionID).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "Institution not found",
+		})
+		return
+	}
+
+	// 验证操作者权限（仅机构所有者或管理员可以更新套餐）
+	username := ctx.GetString("username")
+	var user models.User
+	if err := global.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "User not found",
+		})
+		return
+	}
+
+	// 检查是否为机构所有者或管理员
+	if user.ID != institution.UserID && user.UserType != 2 {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error": "You don't have permission to update packages for this institution",
+		})
+		return
+	}
+
+	// 解析请求体
+	var input struct {
+		Packages string `json:"packages"`
+	}
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// 验证JSON格式
+	var packageTest interface{}
+	if err := json.Unmarshal([]byte(input.Packages), &packageTest); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid JSON format for packages",
+		})
+		return
+	}
+
+	// 更新套餐信息
+	institution.ExaminationPackage = input.Packages
+	if err := global.DB.Save(&institution).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Examination packages updated successfully",
 	})
 }

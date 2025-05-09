@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElContainer, ElAside, ElMain, ElHeader, ElMenu, ElMenuItem, ElCard, ElAvatar, ElRow, ElCol, ElButton, ElDivider, ElForm, ElFormItem, ElInput, ElMessage, ElDialog, ElTable, ElTableColumn, ElBadge, ElTimeline, ElTimelineItem, ElSelect, ElOption } from 'element-plus'
+import { ElContainer, ElAside, ElMain, ElHeader, ElMenu, ElMenuItem, ElCard, ElAvatar, ElRow, ElCol, ElButton, ElDivider, ElForm, ElFormItem, ElInput, ElMessage, ElDialog, ElTable, ElTableColumn, ElBadge, ElTimeline, ElTimelineItem, ElSelect, ElOption, ElCollapse, ElCollapseItem, ElSkeleton, ElEmpty } from 'element-plus'
 import { User, List, Setting, UserFilled, HomeFilled, Tools } from '@element-plus/icons-vue'
 import InstitutionForm from '@/components/InstitutionForm.vue'
 import AdminReview from '@/components/AdminReview.vue'
+import axios from 'axios'
 
 const router = useRouter()
 const uid = ref(localStorage.getItem('uid'))
@@ -65,6 +66,47 @@ const getUserTypeLabel = (type: number) => {
     default:
       return '未知类型'
   }
+}
+
+interface InstitutionItem {
+  ID: number
+  institution_name: string
+  institution_address: string
+  institution_qualification: string
+  examination_package: string
+  status: number
+}
+const institutions = ref<InstitutionItem[]>([])
+const loadingInstitutions = ref(false)
+const activeInstitution = ref<number | string>('')
+
+const fetchInstitutions = async () => {
+  try {
+    loadingInstitutions.value = true
+    const rawToken = localStorage.getItem('jwt')
+    if (!rawToken) {
+      ElMessage.error('未登录或令牌丢失，无法获取机构列表')
+      return
+    }
+    // Ensure single 'Bearer ' prefix
+    const authToken = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`
+    const response = await axios.get('/api/institutions', {
+      headers: { Authorization: authToken }
+    })
+    institutions.value = response.data
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loadingInstitutions.value = false
+  }
+}
+
+watch(activeMenu, (val) => {
+  if (val === '5') fetchInstitutions()
+})
+
+const selectPackage = (id: number) => {
+  console.log('选择机构', id)
 }
 
 onMounted(async () => {
@@ -272,6 +314,11 @@ const handleCreateFamilyRequest = async () => {
             <ElMenuItem index="4">
               <el-icon><UserFilled /></el-icon>
               <span>家庭关系</span>
+            </ElMenuItem>
+            <!-- 新增体检机构列表菜单 -->
+            <ElMenuItem index="5">
+              <el-icon><HomeFilled /></el-icon>
+              <span>机构列表</span>
             </ElMenuItem>
           </template>
         </ElMenu>
@@ -503,6 +550,39 @@ const handleCreateFamilyRequest = async () => {
               </template>
             </ElDialog>
           </div>
+
+          <!-- 体检机构列表面板 -->
+          <div v-if="activeMenu === '5'">
+            <ElCard shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <span>体检机构列表</span>
+                </div>
+              </template>
+              <div v-if="loadingInstitutions">
+                <el-skeleton :rows="4" animated />
+              </div>
+              <div v-else-if="institutions.length === 0" class="empty-state">
+                <el-empty description="暂无可用的体检机构" />
+              </div>
+              <div v-else>
+                <el-collapse v-model="activeInstitution">
+                  <el-collapse-item
+                    v-for="inst in institutions"
+                    :key="inst.ID"
+                    :title="inst.institution_name"
+                    :name="inst.ID">
+                    <p><strong>地址:</strong> {{ inst.institution_address }}</p>
+                    <p><strong>资质:</strong> {{ inst.institution_qualification }}</p>
+                    <p><strong>套餐:</strong> {{ inst.examination_package }}</p>
+                    <div class="institution-actions">
+                      <ElButton type="primary" size="small" @click="selectPackage(inst.ID)">选择套餐</ElButton>
+                    </div>
+                  </el-collapse-item>
+                </el-collapse>
+              </div>
+            </ElCard>
+          </div>
         </template>
       </ElMain>
     </ElContainer>
@@ -606,5 +686,14 @@ const handleCreateFamilyRequest = async () => {
 
 :deep(.el-timeline-item__content) {
   width: 100%;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 20px;
+}
+
+.institution-actions {
+  margin-top: 10px;
 }
 </style>
