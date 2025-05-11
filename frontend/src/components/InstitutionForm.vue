@@ -74,8 +74,8 @@ const handleSubmit = async () => {
     })
 
     if (!response.ok) {
-      const data = await response.json()
-      throw new Error(data.error || '提交失败')
+      const errorData = await response.json()
+      throw new Error(errorData.error || '提交失败')
     }
 
     // 获取新创建的机构ID

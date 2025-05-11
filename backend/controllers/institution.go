@@ -16,8 +16,10 @@ import (
 func CreateInstitution(ctx *gin.Context) {
 	var institution models.Institution
 	if err := ctx.ShouldBindJSON(&institution); err != nil {
+		fmt.Printf("Failed to bind JSON: %v\n", err)
+		fmt.Printf("Request body: %v\n", ctx.Request.Body)
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+			"error": "请求格式错误: " + err.Error(),
 		})
 		return
 	}
@@ -27,7 +29,7 @@ func CreateInstitution(ctx *gin.Context) {
 	uid, err := strconv.ParseUint(userID, 10, 32)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid user ID",
+			"error": "无效的用户ID",
 		})
 		return
 	}
@@ -36,14 +38,14 @@ func CreateInstitution(ctx *gin.Context) {
 	var user models.User
 	if err := global.DB.First(&user, uid).Error; err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{
-			"error": "User not found",
+			"error": "用户不存在",
 		})
 		return
 	}
 
 	if user.UserType != 3 {
 		ctx.JSON(http.StatusForbidden, gin.H{
-			"error": "Only institution users can create institution information",
+			"error": "只有机构用户可以创建机构信息",
 		})
 		return
 	}
@@ -54,13 +56,13 @@ func CreateInstitution(ctx *gin.Context) {
 	if err == nil {
 		// 找到了已存在的机构记录
 		ctx.JSON(http.StatusConflict, gin.H{
-			"error": "Institution already exists for this user",
+			"error": "该用户已经创建过机构信息",
 		})
 		return
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		// 发生了除了"记录未找到"之外的错误
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "数据库错误: " + err.Error(),
 		})
 		return
 	}
@@ -73,13 +75,14 @@ func CreateInstitution(ctx *gin.Context) {
 
 	if err := global.DB.Create(&institution).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
+			"error": "创建机构信息失败: " + err.Error(),
 		})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message": "Institution information submitted successfully",
+		"message": "机构信息提交成功，等待管理员审核",
+		"institution": institution,
 	})
 }
 

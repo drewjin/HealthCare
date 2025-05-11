@@ -1,70 +1,86 @@
 <template>
   <div class="package-manager">
-    <h2>管理体检套餐</h2>
+    <div class="header-section">
+      <el-alert
+        v-if="saveSuccess"
+        title="套餐信息保存成功"
+        type="success"
+        :closable="false"
+        show-icon
+        class="alert-message"
+      />
+      
+      <el-alert
+        v-if="saveError"
+        :title="errorMessage"
+        type="error"
+        :closable="false"
+        show-icon
+        class="alert-message"
+      />
+    </div>
     
-    <el-alert
-      v-if="saveSuccess"
-      title="套餐信息保存成功"
-      type="success"
-      :closable="false"
-      show-icon
-      class="alert-message"
-    />
-    
-    <el-alert
-      v-if="saveError"
-      :title="errorMessage"
-      type="error"
-      :closable="false"
-      show-icon
-      class="alert-message"
-    />
-    
-    <el-button type="primary" @click="addNewPackage" class="add-button">
-      添加新套餐
-    </el-button>
+    <div class="actions-row">
+      <el-button type="primary" @click="addNewPackage" class="add-button">
+        添加新套餐
+      </el-button>
+      
+      <el-button type="primary" @click="savePackages" :loading="saving" class="save-button">
+        保存套餐信息
+      </el-button>
+    </div>
     
     <div v-if="packages.length > 0" class="packages-list">
-      <el-card v-for="(pkg, index) in packages" :key="index" class="package-card">
-        <template #header>
-          <div class="package-header">
-            <el-input v-model="pkg.name" placeholder="套餐名称" />
-            <el-button type="danger" @click="removePackage(index)" size="small">
-              删除
-            </el-button>
+      <el-collapse v-model="activePackages" accordion>
+        <el-collapse-item 
+          v-for="(pkg, index) in packages" 
+          :key="index"
+          :name="index"
+        >
+          <template #title>
+            <div class="package-collapse-header">
+              <span>{{ pkg.name || '新套餐' }}</span>
+              <span class="package-price">{{ pkg.price }}元</span>
+            </div>
+          </template>
+          
+          <div class="package-content">
+            <el-form :model="pkg" label-width="80px" class="package-form">
+              <div class="form-grid">
+                <el-form-item label="套餐名称" class="form-item">
+                  <el-input v-model="pkg.name" placeholder="套餐名称" />
+                </el-form-item>
+                
+                <el-form-item label="适用人群" class="form-item">
+                  <el-input v-model="pkg.suitableFor" placeholder="例如：中老年人、白领人士等" />
+                </el-form-item>
+                
+                <el-form-item label="价格" class="form-item">
+                  <el-input-number v-model="pkg.price" :min="0" :precision="2" :step="100" style="width: 100%;" controls-position="right" />
+                </el-form-item>
+              </div>
+              
+              <el-form-item label="套餐描述">
+                <el-input v-model="pkg.description" type="textarea" :rows="2" placeholder="请输入套餐描述" />
+              </el-form-item>
+              
+              <el-form-item label="检查项目">
+                <el-input v-model="pkg.items" type="textarea" :rows="2" placeholder="请列出检查项目，可用逗号分隔" />
+              </el-form-item>
+              
+              <div class="package-actions">
+                <el-button type="danger" @click.stop="removePackage(index)" size="small">
+                  删除套餐
+                </el-button>
+              </div>
+            </el-form>
           </div>
-        </template>
-        
-        <div class="package-form">
-          <el-form label-position="top">
-            <el-form-item label="套餐描述">
-              <el-input v-model="pkg.description" type="textarea" :rows="3" placeholder="请输入套餐描述" />
-            </el-form-item>
-            
-            <el-form-item label="适用人群">
-              <el-input v-model="pkg.suitableFor" placeholder="例如：中老年人、白领人士等" />
-            </el-form-item>
-            
-            <el-form-item label="检查项目">
-              <el-input v-model="pkg.items" type="textarea" :rows="3" placeholder="请列出检查项目，可用逗号分隔" />
-            </el-form-item>
-            
-            <el-form-item label="价格 (元)">
-              <el-input-number v-model="pkg.price" :min="0" :precision="2" :step="100" />
-            </el-form-item>
-          </el-form>
-        </div>
-      </el-card>
+        </el-collapse-item>
+      </el-collapse>
     </div>
     
     <div v-else class="empty-packages">
       <el-empty description="暂无体检套餐，请添加" />
-    </div>
-    
-    <div class="action-buttons">
-      <el-button type="primary" @click="savePackages" :loading="saving">
-        保存套餐信息
-      </el-button>
     </div>
   </div>
 </template>
@@ -91,12 +107,13 @@ const saving = ref(false)
 const saveSuccess = ref(false)
 const saveError = ref(false)
 const errorMessage = ref('')
+const activePackages = ref<number[]>([]) // 用于控制折叠面板的展开状态
 
 const fetchPackages = async () => {
   try {
     const token = localStorage.getItem('jwt')
-    const response = await axios.get(`/api/institutions/${props.institutionId}/packages`, {
-      headers: { Authorization: `Bearer ${token}` }
+    const response = await axios.get(`http://localhost:3000/api/institutions/${props.institutionId}/packages`, {
+      headers: { Authorization: token }
     })
     
     // 解析套餐数据
@@ -117,6 +134,7 @@ const fetchPackages = async () => {
 }
 
 const addNewPackage = () => {
+  const newIndex = packages.value.length
   packages.value.push({
     name: '新套餐',
     description: '',
@@ -124,10 +142,16 @@ const addNewPackage = () => {
     items: '',
     price: 0
   })
+  // 自动展开新添加的套餐
+  activePackages.value = [...activePackages.value, newIndex]
 }
 
 const removePackage = (index: number) => {
   packages.value.splice(index, 1)
+  // 移除被删除套餐的激活状态
+  activePackages.value = activePackages.value.filter(i => i !== index)
+  // 更新索引大于被删除套餐的激活状态
+  activePackages.value = activePackages.value.map(i => i > index ? i - 1 : i)
 }
 
 const savePackages = async () => {
@@ -144,10 +168,10 @@ const savePackages = async () => {
   saving.value = true
   try {
     const token = localStorage.getItem('jwt')
-    await axios.put(`/api/institutions/${props.institutionId}/packages`, {
+    await axios.put(`http://localhost:3000/api/institutions/${props.institutionId}/packages`, {
       packages: JSON.stringify(packages.value)
     }, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: token }
     })
     
     saveSuccess.value = true
@@ -181,48 +205,97 @@ onMounted(() => {
 
 <style scoped>
 .package-manager {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 20px;
+  width: 100%;
+  padding: 10px 0;
+  box-sizing: border-box;
 }
 
-.alert-message {
-  margin-bottom: 20px;
-}
-
-.add-button {
-  margin-bottom: 20px;
-}
-
-.packages-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.package-card {
+.header-section {
   margin-bottom: 15px;
 }
 
-.package-header {
+.alert-message {
+  margin-bottom: 10px;
+}
+
+.actions-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.add-button, .save-button {
+  min-width: 110px;
+}
+
+.packages-list {
+  margin-bottom: 15px;
+}
+
+.package-collapse-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
+}
+
+.package-price {
+  font-weight: bold;
+  color: #409EFF;
+}
+
+.package-content {
+  padding: 5px 0;
 }
 
 .package-form {
-  padding: 10px 0;
+  width: 100%;
 }
 
-.action-buttons {
-  margin-top: 20px;
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.package-actions {
   display: flex;
   justify-content: flex-end;
+  margin-top: 10px;
 }
 
 .empty-packages {
-  margin: 30px 0;
+  margin: 20px 0;
   text-align: center;
+}
+
+:deep(.el-collapse) {
+  border: none;
+}
+
+:deep(.el-collapse-item__header) {
+  font-size: 16px;
+  padding: 0 15px;
+  font-weight: bold;
+  border-radius: 4px;
+  background-color: #f5f7fa;
+}
+
+:deep(.el-collapse-item__wrap) {
+  padding: 10px;
+  border-bottom: none;
+}
+
+:deep(.el-collapse-item__content) {
+  padding: 10px;
+}
+
+:deep(.el-form-item__label) {
+  font-weight: bold;
+}
+
+:deep(.el-input-number .el-input__inner) {
+  text-align: left;
 }
 </style>
