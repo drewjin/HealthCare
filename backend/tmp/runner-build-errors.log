@@ -1,3 +1,2 @@
-go: error obtaining buildID for go tool asm: exit status 0xc0000142
-go: error obtaining buildID for go tool asm: exit status 0xc0000142
-go: error obtaining buildID for go tool asm: exit status 0xc0000142
+# healthcare/models
+models\plan.go:12:19: undefined: Organization
