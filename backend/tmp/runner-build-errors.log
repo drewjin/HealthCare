@@ -1,2 +1,9 @@
-# healthcare/models
-models\plan.go:12:19: undefined: Organization
+# healthcare/controllers
+controllers\auth.go:37:34: not enough arguments in call to utils.GenerateJWT
+	have (string)
+	want (string, uint8)
+controllers\auth.go:95:34: not enough arguments in call to utils.GenerateJWT
+	have (string)
+	want (string, uint8)
+# healthcare/middlewares
+middlewares\auth.go:21:20: assignment mismatch: 2 variables but utils.ParseJWT returns 3 values
