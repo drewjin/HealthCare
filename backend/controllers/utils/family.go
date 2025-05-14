@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// UnmarshalUint 将字符串转换为uint
 func UnmarshalUint(s string) (uint, error) {
 	i, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {

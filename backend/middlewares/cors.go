@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// 自动产生cors跨域请求的中间件
 func SetupCorsMiddleware() gin.HandlerFunc {
 	port := config.AppConfig.App.FrontendPort
 	if port == "" {
