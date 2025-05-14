@@ -18,11 +18,13 @@ func SetupInstitutionRouter(r *gin.Engine) {
 		institution.POST("/:id/review", middlewares.RequireUserType(2), controllers.ReviewInstitution)
 
 		// New APIs for institution viewing
-		institution.GET("", controllers.GetAllApprovedInstitutions)          // Get all approved institutions
-		institution.GET("/:id", controllers.GetInstitutionDetail)            // Get institution details
-		institution.GET("/:id/packages", controllers.GetInstitutionPackages) // Get institution examination packages
+		institution.GET("", controllers.GetInstitutions)                                                      // Get User institutions
+		institution.GET("/:id", middlewares.RequireUserType(3, 2), controllers.GetInstitutionDetail)          // Get institution details
+		institution.POST("/:id/plans", middlewares.RequireUserType(3, 2), controllers.CreateInstitutionPlans) // Create institution plans&items
+		institution.GET("/:id/plans", controllers.GetInstitutionPlans)                                        // Get institution Plans
+		institution.POST("/:id/:plan_id/item", middlewares.RequireUserType(3, 2), controllers.CreateInstitutionPlans)
 
-		// API for updating institution packages (only institution owner or admin)
-		institution.PUT("/:id/packages", controllers.UpdateInstitutionPackages)
+		institution.PATCH("/:id/update", middlewares.RequireUserType(3, 2), controllers.UpdateInsistutionPlanorItem) // 更新机构相关信息
+
 	}
 }

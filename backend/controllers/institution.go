@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"healthcare/controllers/utils"
 	"healthcare/global"
 	"healthcare/models"
 	"net/http"
@@ -81,7 +81,7 @@ func CreateInstitution(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message": "机构信息提交成功，等待管理员审核",
+		"message":     "机构信息提交成功，等待管理员审核",
 		"institution": institution,
 	})
 }
@@ -168,8 +168,8 @@ func ReviewInstitution(ctx *gin.Context) {
 	})
 }
 
-func GetAllApprovedInstitutions(ctx *gin.Context) {
-	var institutions []models.Institution
+func GetInstitutions(ctx *gin.Context) {
+	var institutions models.Institution
 	if err := global.DB.Where("status = ?", 1).Find(&institutions).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -215,7 +215,135 @@ func GetInstitutionDetail(ctx *gin.Context) {
 	})
 }
 
-func GetInstitutionPackages(ctx *gin.Context) {
+// CreateInstitutionPlans 创建机构套餐&体检项目或者创建目标套餐的新增体检项目
+func CreateInstitutionPlans(ctx *gin.Context) {
+	institutionID := ctx.Param("id")
+	planID := ctx.Param("plan_id")
+	var institution models.Institution
+
+	if err := global.DB.First(&institution, institutionID).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "Institution not found",
+		})
+		return
+	}
+	// 验证操作者权限（仅机构所有者或管理员可以更新套餐）
+	username := ctx.GetString("username")
+	var user models.User
+	if err := global.DB.Where("username = ?", username).First(&user).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "User not found",
+		})
+		return
+	}
+
+	if user.ID != institution.UserID && user.UserType != 2 {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error": "You don't have permission to create plans for this institution",
+		})
+		return
+	}
+
+	var input struct {
+		PlanName        *string `json:"plan_name"` //允许没有套餐名称
+		HealthItem      string  `json:"health_item"`
+		ItemDescription *string `json:"item_description"` //允许没有描述
+	}
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	var newPlan models.Plan
+	newPlan.RelationInstitutionID = institution.ID
+	if planID == "" {
+		newPlan.PlanName = *input.PlanName
+
+		// 检查套餐名称是否已存在
+		exists, err := utils.CheckExists(&models.Plan{}, "plan_name", *input.PlanName)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "数据库错误: " + err.Error(),
+			})
+			return
+		}
+		if exists {
+			ctx.JSON(http.StatusConflict, gin.H{
+				"error": fmt.Sprintf("%v 已经存在，请更换名称或者是更新已有内容", input.PlanName)})
+			return
+		}
+
+		if err := global.DB.Create(&newPlan).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+	} else {
+		// 检查planid对应的套餐是否存在
+		if err := global.DB.First(&newPlan, planID).Error; err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{
+				"error": "套餐不存在",
+			})
+			return
+		}
+	}
+
+	var newHealthItem models.HealthItem
+	newHealthItem.ItemName = input.HealthItem
+	// 检查指标名称是否已存在
+	exists, err := utils.CheckExists(&models.HealthItem{}, "item_name", input.HealthItem)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "数据库错误: " + err.Error(),
+		})
+		return
+	}
+	if !exists {
+		if err := global.DB.Create(&newHealthItem).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+	} else {
+		// 已存在则查出ID
+		if err := global.DB.Where("item_name = ?", input.HealthItem).First(&newHealthItem).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "查询已存在指标失败: " + err.Error(),
+			})
+			return
+		}
+	}
+
+	var newPlanHealthItem models.PlanHeathItem
+	newPlanHealthItem.RelationPlanId = newPlan.ID
+	newPlanHealthItem.RelationHealthItemId = newHealthItem.ID
+	if input.ItemDescription != nil {
+		newPlanHealthItem.ItemDescription = *input.ItemDescription
+	}
+
+	if err := global.DB.Create(&newPlanHealthItem).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": map[bool]string{
+			true:  "套餐创建成功",
+			false: "体检项目创建成功"}[planID == ""],
+
+		"plan":      newPlan,
+		"item":      newHealthItem,
+		"plan_item": newPlanHealthItem,
+	})
+}
+
+func GetInstitutionPlans(ctx *gin.Context) {
 	institutionID := ctx.Param("id")
 	var institution models.Institution
 
@@ -244,48 +372,50 @@ func GetInstitutionPackages(ctx *gin.Context) {
 		return
 	}
 
-	// 假设ExaminationPackage字段存储了JSON格式的套餐信息
-	// 实际应用中，这里可能需要解析JSON或从其他表中查询
+	// 获取机构所属下的套餐名称（可能有多个套餐）
+	var plans []models.Plan
+	if err := global.DB.Where("institution_id = ?", institution.ID).Find(&plans).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// 获取套餐对应的id切片
+	planIDs := make([]uint, len(plans))
+	for i, p := range plans {
+		planIDs[i] = p.ID
+	}
+
+	// 获取套餐对应的指标信息
+	var planItems []models.PlanHeathItem
+	if err := global.DB.Where("plan_id IN ?", planIDs).Find(&planItems).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"institution": institution,
-		"isAdmin":     user.UserType == 2,
-		"packages":    institution.ExaminationPackage,
+		"plans":       plans,
+		"items":       planItems,
 	})
 }
 
-func UpdateInstitutionPackages(ctx *gin.Context) {
+func UpdateInsistutionPlanorItem(ctx *gin.Context) {
 	institutionID := ctx.Param("id")
-	var institution models.Institution
 
-	if err := global.DB.First(&institution, institutionID).Error; err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"error": "Institution not found",
-		})
-		return
-	}
-
-	// 验证操作者权限（仅机构所有者或管理员可以更新套餐）
-	username := ctx.GetString("username")
-	var user models.User
-	if err := global.DB.Where("username = ?", username).First(&user).Error; err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"error": "User not found",
-		})
-		return
-	}
-
-	// 检查是否为机构所有者或管理员
-	if user.ID != institution.UserID && user.UserType != 2 {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"error": "You don't have permission to update packages for this institution",
-		})
-		return
-	}
-
-	// 解析请求体
 	var input struct {
-		Packages string `json:"packages"`
+		PlanID                   uint    `json:"plan_id"`
+		ItemID                   uint    `json:"item_id"`
+		ItemName                 *string `json:"item_name"`
+		ItemDescription          *string `json:"item_description"`
+		PlanName                 *string `json:"plan_name"`
+		InstitutionName          *string `json:"institution_name"`
+		InstitutionPhone         *string `json:"institution_phone"`
+		InstitutionAddress       *string `json:"institution_address"`
+		InstitutionQualification *string `json:"institution_qualification"`
 	}
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -294,25 +424,56 @@ func UpdateInstitutionPackages(ctx *gin.Context) {
 		return
 	}
 
-	// 验证JSON格式
-	var packageTest interface{}
-	if err := json.Unmarshal([]byte(input.Packages), &packageTest); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid JSON format for packages",
+	var institution models.Institution
+	if err := global.DB.First(&institution, institutionID).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "Institution not found",
+		})
+		return
+	}
+	if institution.Status != 1 {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error": "This institution is not approved",
 		})
 		return
 	}
 
-	// 更新套餐信息
-	institution.ExaminationPackage = input.Packages
-	if err := global.DB.Save(&institution).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
+	// Update plan name
+	if input.PlanName != nil {
+		utils.UpdateIt(&models.Plan{}, input.PlanID, "plan_name", *input.PlanName)
+	}
+
+	// Update item name
+	if input.ItemName != nil {
+		utils.UpdateIt(&models.HealthItem{}, input.ItemID, "item_name", *input.ItemName)
+	}
+
+	// Update item description
+	if input.ItemDescription != nil {
+		utils.UpdateIt(&models.PlanHeathItem{}, input.ItemID, "item_description", *input.ItemDescription)
+	}
+
+	// Update institution Name
+	if input.InstitutionName != nil {
+		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_name", *input.InstitutionName)
+	}
+
+	// Update institution Phone
+	if input.InstitutionPhone != nil {
+		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_phone", *input.InstitutionPhone)
+	}
+
+	// Update institution Address
+	if input.InstitutionAddress != nil {
+		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_address", *input.InstitutionAddress)
+	}
+
+	// Update institution Qualification
+	if input.InstitutionQualification != nil {
+		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_qualification", *input.InstitutionQualification)
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message": "Examination packages updated successfully",
-	})
+		"message": "更新成功"})
+
 }

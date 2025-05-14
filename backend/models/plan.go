@@ -21,8 +21,9 @@ type HealthItem struct {
 // plan-item对应表, 展示套餐信息
 type PlanHeathItem struct {
 	gorm.Model
-	RelationPlanId       uint `gorm:"not null;index;column:plan_id"`
-	RelationHealthItemId uint `gorm:"not null;index;column:health_item_id"`
+	RelationPlanId       uint   `gorm:"not null;index;column:plan_id"`
+	RelationHealthItemId uint   `gorm:"not null;index;column:health_item_id"`
+	ItemDescription      string `gorm:"type:varchar(100);index;column:item_description"`
 
 	// Relations
 	ThisPlan      Plan       `gorm:"foreignKey:RelationPlanId;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
