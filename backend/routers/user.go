@@ -13,5 +13,7 @@ func SetupUserRouter(routers *gin.Engine) {
 	{
 		user.GET("/users/:id/profile", controllers.GetUserProfileByID)
 		user.PUT("/users/:id/reset_pwd", controllers.ResetPwd)
+		// Add new endpoint to get institution by user ID
+		user.GET("/user/:id/institution", controllers.GetInstitutionByUserId)
 	}
 }

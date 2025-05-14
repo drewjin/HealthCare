@@ -17,6 +17,18 @@ const router = createRouter({
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/institutions',
+      name: 'institutions',
+      component: () => import('@/views/InstitutionsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/institutions/:id',
+      name: 'institution-detail',
+      component: () => import('@/views/InstitutionDetailView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })
