@@ -29,6 +29,12 @@ const router = createRouter({
       name: 'institution-detail',
       component: () => import('@/views/InstitutionDetailView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/institution-manage',
+      name: 'institution-manage',
+      component: () => import('@/views/InstitutionManageView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

@@ -16,60 +16,76 @@
     </div>
 
     <div v-else class="institution-content">
-      <el-card class="info-card">
-        <template #header>
-          <div class="card-header">
-            <h2>机构信息</h2>
-            <el-tag v-if="isAdmin" :type="getStatusType(institution.status)" effect="plain">
-              {{ getStatusText(institution.status) }}
-            </el-tag>
-          </div>
-        </template>
-        <div class="info-section">
-          <div class="info-row">
-            <span class="info-label">机构名称：</span>
-            <span class="info-value">{{ institution.institution_name }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">地址：</span>
-            <span class="info-value">{{ institution.institution_address }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">资质认证：</span>
-            <span class="info-value">{{ institution.institution_qualification }}</span>
-          </div>
-        </div>
-      </el-card>
-
-      <el-card class="package-card">
-        <template #header>
-          <div class="card-header">
-            <h2>体检套餐</h2>
-          </div>
-        </template>
-        <div v-if="packages.length > 0" class="packages-list">
-          <el-collapse>
-            <el-collapse-item v-for="(pkg, index) in packages" :key="index" :title="pkg.name">
-              <div class="package-content">
-                <div class="package-description">
-                  <p>{{ pkg.description }}</p>
-                </div>
-                <div class="package-details">
-                  <p><strong>适用人群：</strong> {{ pkg.suitableFor }}</p>
-                  <p><strong>检查项目：</strong> {{ pkg.items }}</p>
-                  <p><strong>价格：</strong> {{ pkg.price }} 元</p>
-                </div>
-                <div class="package-actions">
-                  <el-button type="primary" @click="selectPackage(pkg)">选择此套餐</el-button>
-                </div>
+      <el-tabs v-model="activeTab">
+        <el-tab-pane label="基本信息" name="info">
+          <el-card class="info-card">
+            <template #header>
+              <div class="card-header">
+                <h2>机构信息</h2>
+                <el-tag v-if="isAdmin" :type="getStatusType(institution.status)" effect="plain">
+                  {{ getStatusText(institution.status) }}
+                </el-tag>
               </div>
-            </el-collapse-item>
-          </el-collapse>
-        </div>
-        <div v-else class="empty-packages">
-          <el-empty description="暂无体检套餐信息" />
-        </div>
-      </el-card>
+            </template>
+            <div class="info-section">
+              <div class="info-row">
+                <span class="info-label">机构名称：</span>
+                <span class="info-value">{{ institution.institution_name }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">地址：</span>
+                <span class="info-value">{{ institution.institution_address }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">联系电话：</span>
+                <span class="info-value">{{ institution.institution_phone || '未提供' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">资质认证：</span>
+                <span class="info-value">{{ institution.institution_qualification }}</span>
+              </div>
+            </div>
+          </el-card>
+
+          <el-card class="package-card">
+            <template #header>
+              <div class="card-header">
+                <h2>体检套餐</h2>
+              </div>
+            </template>
+            <div v-if="packages.length > 0" class="packages-list">
+              <el-collapse>
+                <el-collapse-item v-for="(pkg, index) in packages" :key="index" :title="pkg.name">
+                  <div class="package-content">
+                    <div class="package-description">
+                      <p>{{ pkg.description }}</p>
+                    </div>
+                    <div class="package-details">
+                      <p><strong>适用人群：</strong> {{ pkg.suitableFor }}</p>
+                      <p><strong>检查项目：</strong> {{ pkg.items }}</p>
+                      <p><strong>价格：</strong> {{ pkg.price }} 元</p>
+                    </div>
+                    <div class="package-actions">
+                      <el-button type="primary" @click="selectPackage(pkg)">选择此套餐</el-button>
+                    </div>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+            <div v-else class="empty-packages">
+              <el-empty description="暂无体检套餐信息" />
+            </div>
+          </el-card>
+        </el-tab-pane>
+        
+        <el-tab-pane v-if="canManage" label="机构管理" name="manage">
+          <institution-update-form :institution-id="institution.ID" />
+          
+          <el-divider>套餐管理</el-divider>
+          
+          <package-manager :institution-id="institution.ID" />
+        </el-tab-pane>
+      </el-tabs>
       
       <!-- 显示已选套餐的对话框 -->
       <el-dialog
@@ -100,21 +116,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import InstitutionUpdateForm from '@/components/InstitutionUpdateForm.vue'
+import PackageManager from '@/components/PackageManager.vue'
 
 interface Institution {
   ID: number
   institution_name: string
   institution_address: string
   institution_qualification: string
+  institution_phone?: string
   examination_package: string
   status: number
+  UserID?: number
 }
 
 interface Package {
+  id?: number
   name: string
   description: string
   suitableFor: string
@@ -130,6 +151,14 @@ const loading = ref(true)
 const isAdmin = ref(false)
 const dialogVisible = ref(false)
 const selectedPackage = ref<Package | null>(null)
+const activeTab = ref('info')
+const currentUserId = localStorage.getItem('uid') ? parseInt(localStorage.getItem('uid') || '0') : 0
+
+// 判断当前用户是否可以管理该机构
+const canManage = computed(() => {
+  if (!institution.value) return false
+  return isAdmin.value || (institution.value.UserID === currentUserId)
+})
 
 const fetchInstitutionDetail = async () => {
   try {
@@ -157,18 +186,29 @@ const fetchInstitutionDetail = async () => {
 const fetchPackages = async (institutionId: string) => {
   try {
     const token = localStorage.getItem('jwt')
-    const response = await axios.get(`/api/institutions/${institutionId}/packages`, {
+    const response = await axios.get(`/api/institutions/${institutionId}/plans`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     
-    // Parse the packages (assuming packages are stored as JSON string)
-    if (response.data.packages) {
-      try {
-        packages.value = JSON.parse(response.data.packages)
-      } catch (e) {
-        console.error('Failed to parse examination packages:', e)
-        packages.value = []
-      }
+    // Parse the packages from the response
+    if (response.data.plans) {
+      const plans = response.data.plans
+      const items = response.data.items
+      
+      // Transform the data into a more usable format for the frontend
+      packages.value = plans.map((plan: any) => {
+        const planItems = items.filter((item: any) => item.plan_id === plan.ID)
+        const itemNames = planItems.map((item: any) => item.item_description).join(', ')
+        
+        return {
+          id: plan.ID,
+          name: plan.plan_name,
+          description: planItems[0]?.item_description || '',
+          suitableFor: '适用所有人群', // Default value as it's not provided by API
+          items: itemNames,
+          price: plan.plan_price || 0
+        }
+      })
     }
   } catch (error) {
     console.error('Failed to fetch institution packages:', error)

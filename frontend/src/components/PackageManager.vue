@@ -112,18 +112,13 @@ const activePackages = ref<number[]>([]) // 用于控制折叠面板的展开状
 const fetchPackages = async () => {
   try {
     const token = localStorage.getItem('jwt')
-    const response = await axios.get(`http://localhost:3000/api/institutions/${props.institutionId}/packages`, {
-      headers: { Authorization: token }
+    const response = await axios.get(`/api/institutions/${props.institutionId}/plans`, {
+      headers: { Authorization: `Bearer ${token}` }
     })
     
     // 解析套餐数据
-    if (response.data.packages) {
-      try {
-        packages.value = JSON.parse(response.data.packages)
-      } catch (e) {
-        console.error('Failed to parse packages:', e)
-        packages.value = []
-      }
+    if (response.data.plans) {
+      packages.value = response.data.plans
     } else {
       packages.value = []
     }
@@ -159,7 +154,7 @@ const savePackages = async () => {
   
   // 验证套餐信息
   for (const pkg of packages.value) {
-    if (!pkg.name || !pkg.description || !pkg.items) {
+    if (!pkg.name || !pkg.items) {
       ElMessage.warning('请填写所有必要的套餐信息')
       return
     }
@@ -168,11 +163,31 @@ const savePackages = async () => {
   saving.value = true
   try {
     const token = localStorage.getItem('jwt')
-    await axios.put(`http://localhost:3000/api/institutions/${props.institutionId}/packages`, {
-      packages: JSON.stringify(packages.value)
+    await axios.post(`/api/institutions/${props.institutionId}/plans`, {
+      plan_name: packages.value[0].name,
+      health_item: packages.value[0].items.split(',')[0],
+      item_description: packages.value[0].description
     }, {
-      headers: { Authorization: token }
+      headers: { Authorization: `Bearer ${token}` }
     })
+    
+    // 如果有多个体检项目，为第一个套餐添加剩余项目
+    if (packages.value[0].items.split(',').length > 1) {
+      const planResponse = await axios.get(`/api/institutions/${props.institutionId}/plans`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      const planId = planResponse.data.plans[0].ID
+      
+      for (let i = 1; i < packages.value[0].items.split(',').length; i++) {
+        await axios.post(`/api/institutions/${props.institutionId}/${planId}/item`, {
+          health_item: packages.value[0].items.split(',')[i].trim(),
+          item_description: packages.value[0].description
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      }
+    }
     
     saveSuccess.value = true
     ElMessage.success('套餐信息保存成功')

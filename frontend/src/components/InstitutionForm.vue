@@ -22,10 +22,10 @@ const checkExistingInstitution = async () => {
     const uid = localStorage.getItem('uid')
     if (!token || !uid) return
 
-    const response = await fetch(`http://localhost:3000/api/user/${uid}/institution`, {
+    const response = await fetch(`/api/user/${uid}/institution`, {
       method: 'GET',
       headers: {
-        Authorization: token
+        Authorization: `Bearer ${token}`
       }
     })
 
@@ -59,11 +59,11 @@ const handleSubmit = async () => {
     }
 
     console.info('Submitting institution form:', institutionForm.value)
-    const response = await fetch(`http://localhost:3000/api/institutions/${uid}`, {
+    const response = await fetch(`/api/institutions/${uid}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: token
+        Authorization: `Bearer ${token}`
       },
       body: JSON.stringify({
         institution_name: institutionForm.value.institution_name,

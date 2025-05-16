@@ -321,6 +321,12 @@ const handleCreateFamilyRequest = async () => {
               <span>机构列表</span>
             </ElMenuItem>
           </template>
+          
+          <!-- 机构管理菜单项 -->
+          <ElMenuItem index="6" v-if="userType === 3 || userType === 2" @click="router.push('/institution-manage')">
+            <el-icon><tools /></el-icon>
+            <span>机构管理</span>
+          </ElMenuItem>
         </ElMenu>
       </ElAside>
       
