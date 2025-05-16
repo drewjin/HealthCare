@@ -29,12 +29,13 @@ func SetupInstitutionRouter(r *gin.Engine) {
 		institution.POST("/:id/:plan_id/item", middlewares.RequireUserType(3, 2), controllers.CreateInstitutionPlans)
 		// 更新机构相关信息
 		institution.PATCH("/:id/update", middlewares.RequireUserType(3, 2), controllers.UpdateInsistutionPlanorItem)
+		// 删除都是物理删除
 		// 删除机构相关信息,删除套餐内一个体检项目
-		institution.DELETE("/:id/:plan_id/item", middlewares.RequireUserType(3, 2), controllers.DeleteInsistutionPlanonItem)
+		institution.DELETE("/plan/item", middlewares.RequireUserType(3, 2), controllers.DeleteInsistutionPlanonItem)
 		// 删除套餐
-		institution.DELETE("/:id/:plan_id", middlewares.RequireUserType(3, 2), controllers.DeleteInsistutionPlan)
+		institution.DELETE("/plan", middlewares.RequireUserType(3, 2), controllers.DeleteInsistutionPlan)
 		// 删除机构
-		institution.DELETE("/:id", middlewares.RequireUserType(3, 2), controllers.DeleteInsistution)
+		institution.DELETE("/", middlewares.RequireUserType(3, 2), controllers.DeleteInsistution)
 
 	}
 }
