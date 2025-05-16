@@ -477,3 +477,14 @@ func UpdateInsistutionPlanorItem(ctx *gin.Context) {
 		"message": "更新成功"})
 
 }
+
+// 删除套餐内一个体检项目
+func DeleteInsistutionPlanonItem(ctx *gin.Context) {
+
+}
+
+// 删除套餐
+func DeleteInsistutionPlan(ctx *gin.Context) {}
+
+// 删除机构
+func DeleteInsistution(ctx *gin.Context) {}

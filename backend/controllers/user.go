@@ -250,7 +250,6 @@ func UpdateUserProfile(ctx *gin.Context) {
 // 删除(注销)用户
 func DeleteUser(ctx *gin.Context) {
 	userID := ctx.Param("id")
-
 	var user models.User
 	if err := global.DB.Where("id = ?", userID).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -261,6 +260,15 @@ func DeleteUser(ctx *gin.Context) {
 		}
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
+		})
+		return
+	}
+
+	// 检查是本人还是管理员
+	username := ctx.GetString("username")
+	if username != user.Username && user.UserType != 2 {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error": "You do not have permission to delete this user",
 		})
 		return
 	}

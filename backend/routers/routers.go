@@ -15,6 +15,8 @@ func SetupRouter() *gin.Engine {
 		SetupUserRouter(routers)
 		SetupFamilyRouter(routers)
 		SetupInstitutionRouter(routers)
+		SetupCommentaryRouter(routers)
+		SetupUserViewRouter(routers)
 	}
 	return routers
 }
