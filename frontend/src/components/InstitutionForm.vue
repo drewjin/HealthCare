@@ -25,7 +25,7 @@ const checkExistingInstitution = async () => {
     const response = await fetch(`/api/user/${uid}/institution`, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`
+        Authorization: `${token}`
       }
     })
 
@@ -63,7 +63,7 @@ const handleSubmit = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
+        Authorization: `${token}`
       },
       body: JSON.stringify({
         institution_name: institutionForm.value.institution_name,

@@ -3,7 +3,7 @@
     <div class="header-section">
       <el-alert
         v-if="saveSuccess"
-        title="套餐信息保存成功"
+        :title="successMessage"
         type="success"
         :closable="false"
         show-icon
@@ -18,20 +18,40 @@
         show-icon
         class="alert-message"
       />
+      
+      <el-alert
+        v-if="isEditing && !saveSuccess && !saveError"
+        title="您正在编辑套餐信息，完成后请点击保存按钮"
+        type="info"
+        :closable="false"
+        show-icon
+        class="alert-message"
+      />
     </div>
     
     <div class="actions-row">
-      <el-button type="primary" @click="addNewPackage" class="add-button">
-        添加新套餐
+      <el-button 
+        v-if="!isEditing" 
+        type="primary" 
+        @click="addNewPackage" 
+        class="add-button"
+      >
+        创建新套餐
       </el-button>
       
-      <el-button type="primary" @click="savePackages" :loading="saving" class="save-button">
+      <el-button 
+        v-if="isEditing"
+        type="primary" 
+        @click="savePackages" 
+        :loading="saving" 
+        class="save-button"
+      >
         保存套餐信息
       </el-button>
     </div>
     
     <div v-if="packages.length > 0" class="packages-list">
-      <el-collapse v-model="activePackages" accordion>
+      <el-collapse v-model="activePackages" accordion @change="handleCollapseChange">
         <el-collapse-item 
           v-for="(pkg, index) in packages" 
           :key="index"
@@ -80,7 +100,12 @@
     </div>
     
     <div v-else class="empty-packages">
-      <el-empty description="暂无体检套餐，请添加" />
+      <el-empty description="暂无体检套餐" />
+      <div class="empty-action">
+        <el-button type="primary" @click="addNewPackage" class="add-button">
+          添加新套餐
+        </el-button>
+      </div>
     </div>
   </div>
 </template>
@@ -95,6 +120,7 @@ const props = defineProps<{
 }>()
 
 interface Package {
+  id?: number
   name: string
   description: string
   suitableFor: string
@@ -107,18 +133,34 @@ const saving = ref(false)
 const saveSuccess = ref(false)
 const saveError = ref(false)
 const errorMessage = ref('')
+const successMessage = ref('套餐信息保存成功')
 const activePackages = ref<number[]>([]) // 用于控制折叠面板的展开状态
+const isEditing = ref(false) // 控制是否显示保存按钮
 
 const fetchPackages = async () => {
   try {
     const token = localStorage.getItem('jwt')
     const response = await axios.get(`/api/institutions/${props.institutionId}/plans`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `${token}` }
     })
     
     // 解析套餐数据
-    if (response.data.plans) {
-      packages.value = response.data.plans
+    if (response.data.plans && response.data.plans.length > 0) {
+      packages.value = response.data.plans.map((plan: any) => {
+        return {
+          id: plan.ID || plan.id,
+          name: plan.name || plan.plan_name || '',
+          description: plan.description || '',
+          suitableFor: plan.suitable_for || '',
+          items: plan.items || '',
+          price: plan.price || plan.plan_price || 0
+        }
+      })
+      
+      // 如果有现有套餐，初始化状态
+      if (packages.value.length > 0) {
+        isEditing.value = false // 初始状态不显示保存按钮
+      }
     } else {
       packages.value = []
     }
@@ -139,6 +181,8 @@ const addNewPackage = () => {
   })
   // 自动展开新添加的套餐
   activePackages.value = [...activePackages.value, newIndex]
+  // 显示保存按钮
+  isEditing.value = true
 }
 
 const removePackage = (index: number) => {
@@ -163,38 +207,69 @@ const savePackages = async () => {
   saving.value = true
   try {
     const token = localStorage.getItem('jwt')
-    await axios.post(`/api/institutions/${props.institutionId}/plans`, {
-      plan_name: packages.value[0].name,
-      health_item: packages.value[0].items.split(',')[0],
-      item_description: packages.value[0].description
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const currentPackage = packages.value[0]
     
-    // 如果有多个体检项目，为第一个套餐添加剩余项目
-    if (packages.value[0].items.split(',').length > 1) {
-      const planResponse = await axios.get(`/api/institutions/${props.institutionId}/plans`, {
-        headers: { Authorization: `Bearer ${token}` }
+    // 检查是否有ID，如果有则是更新操作
+    if (currentPackage.id) {
+      // 使用PATCH更新现有套餐
+      await axios.patch(`/api/institutions/${props.institutionId}/item`, {
+        plan_id: currentPackage.id,
+        plan_name: currentPackage.name,
+        plan_price: currentPackage.price,
+        description: currentPackage.description,
+        suitable_for: currentPackage.suitableFor
+      }, {
+        headers: { Authorization: `${token}` }
       })
       
-      const planId = planResponse.data.plans[0].ID
+      successMessage.value = '套餐信息更新成功'
+    } else {
+      // 创建新套餐
+      await axios.post(`/api/institutions/${props.institutionId}/plans`, {
+        plan_name: currentPackage.name,
+        health_item: currentPackage.items.split(',')[0],
+        item_description: currentPackage.description,
+        plan_price: currentPackage.price,
+        description: currentPackage.description,
+        suitable_for: currentPackage.suitableFor
+      }, {
+        headers: { Authorization: `${token}` }
+      })
       
-      for (let i = 1; i < packages.value[0].items.split(',').length; i++) {
-        await axios.post(`/api/institutions/${props.institutionId}/${planId}/item`, {
-          health_item: packages.value[0].items.split(',')[i].trim(),
-          item_description: packages.value[0].description
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
+      // 如果有多个体检项目，为套餐添加剩余项目
+      if (currentPackage.items.split(',').length > 1) {
+        const planResponse = await axios.get(`/api/institutions/${props.institutionId}/plans`, {
+          headers: { Authorization: `${token}` }
         })
+        
+        const planId = planResponse.data.plans[0].ID
+        
+        for (let i = 1; i < currentPackage.items.split(',').length; i++) {
+          await axios.post(`/api/institutions/${props.institutionId}/${planId}/item`, {
+            health_item: currentPackage.items.split(',')[i].trim(),
+            item_description: currentPackage.description
+          }, {
+            headers: { Authorization: `${token}` }
+          })
+        }
       }
+      
+      successMessage.value = '套餐信息创建成功'
     }
     
     saveSuccess.value = true
-    ElMessage.success('套餐信息保存成功')
-  } catch (error) {
+    
+    // 刷新套餐数据
+    await fetchPackages()
+    
+    // 保存成功后隐藏保存按钮
+    isEditing.value = false
+    
+  } catch (error: any) {
     console.error('Failed to save packages:', error)
     saveError.value = true
-    errorMessage.value = '保存套餐信息失败'
+    errorMessage.value = error.response?.data?.error || '保存套餐信息失败'
+    ElMessage.error(errorMessage.value)
   } finally {
     saving.value = false
     
@@ -211,6 +286,14 @@ const resetAlerts = () => {
   saveSuccess.value = false
   saveError.value = false
   errorMessage.value = ''
+  successMessage.value = '套餐信息保存成功'
+}
+
+const handleCollapseChange = (activeNames: number[]) => {
+  // 当打开一个套餐时，启用编辑模式
+  if (activeNames.length > 0) {
+    isEditing.value = true
+  }
 }
 
 onMounted(() => {
@@ -283,6 +366,10 @@ onMounted(() => {
 .empty-packages {
   margin: 20px 0;
   text-align: center;
+}
+
+.empty-action {
+  margin-top: 20px;
 }
 
 :deep(.el-collapse) {

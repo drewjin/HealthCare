@@ -69,7 +69,7 @@ const fetchInstitutionInfo = async () => {
   try {
     const token = localStorage.getItem('jwt')
     const response = await axios.get(`/api/institutions/${props.institutionId}`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `${token}` }
     })
     
     const institution = response.data.institution
@@ -116,16 +116,31 @@ const handleUpdate = async () => {
   updating.value = true
   try {
     const token = localStorage.getItem('jwt')
-    await axios.patch(`/api/institutions/${props.institutionId}/update`, updateData, {
-      headers: { Authorization: `Bearer ${token}` }
+    const response = await axios.patch(`/api/institutions/${props.institutionId}/update`, updateData, {
+      headers: { Authorization: `${token}` }
     })
+    
+    // 检查响应内容
+    if (response.data && response.data.institution) {
+      // 更新本地表单数据以反映最新的服务器状态
+      updateForm.value.institution_name = response.data.institution.institution_name || ''
+      updateForm.value.institution_phone = response.data.institution.institution_phone || ''
+      updateForm.value.institution_address = response.data.institution.institution_address || ''
+      updateForm.value.institution_qualification = response.data.institution.institution_qualification || ''
+    }
     
     updateSuccess.value = true
     ElMessage.success('机构信息更新成功')
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to update institution:', error)
     updateError.value = true
-    errorMessage.value = '更新机构信息失败'
+    
+    // 提取具体错误信息
+    if (error.response && error.response.data && error.response.data.error) {
+      errorMessage.value = error.response.data.error
+    } else {
+      errorMessage.value = '更新机构信息失败'
+    }
   } finally {
     updating.value = false
     

@@ -88,14 +88,62 @@ const fetchInstitutions = async () => {
       ElMessage.error('未登录或令牌丢失，无法获取机构列表')
       return
     }
-    // Ensure single 'Bearer ' prefix
-    const authToken = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`
+    // Ensure single '' prefix
+    const authToken = rawToken.startsWith('') ? rawToken : `${rawToken}`
     const response = await axios.get('/api/institutions', {
       headers: { Authorization: authToken }
     })
-    institutions.value = response.data
+    
+    // 处理不同的响应格式：可能是数组或单个对象
+    console.log('获取到的机构数据:', response.data)
+    
+    try {
+      if (Array.isArray(response.data)) {
+        // 如果是数组，过滤并进行类型强制转换
+        const validInstitutions = response.data
+          .filter(inst => inst && typeof inst === 'object' && 'ID' in inst)
+          .map(inst => inst as InstitutionItem);
+        
+        institutions.value = validInstitutions;
+        console.log('获取到机构列表（数组）：', institutions.value.length)
+      } else if (response.data && typeof response.data === 'object') {
+        // 如果是单个对象，将其转换为数组
+        if ('ID' in response.data) {
+          institutions.value = [response.data as InstitutionItem];
+          console.log('获取到单个机构，已转换为数组')
+        } else {
+          // 尝试从对象中提取机构
+          try {
+            const values = Object.values(response.data);
+            const validInstitutions = values
+              .filter(item => item && typeof item === 'object' && 'ID' in item)
+              .map(item => item as InstitutionItem);
+              
+            if (validInstitutions.length > 0) {
+              institutions.value = validInstitutions;
+              console.log('从对象中提取机构数组：', validInstitutions.length)
+            } else {
+              throw new Error('未找到有效的机构数据');
+            }
+          } catch (extractError) {
+            console.error('从对象提取机构列表失败:', extractError);
+            institutions.value = [];
+            ElMessage.warning('获取机构列表格式不正确');
+          }
+        }
+      } else {
+        // 无法识别的格式
+        throw new Error('响应数据格式不正确');
+      }
+    } catch (formatError) {
+      console.error('处理机构数据出错:', formatError);
+      institutions.value = [];
+      ElMessage.warning('获取机构列表格式不正确');
+    }
   } catch (e) {
-    console.error(e)
+    console.error('获取机构列表出错：', e)
+    institutions.value = []
+    ElMessage.error('获取机构列表失败，请检查网络连接')
   } finally {
     loadingInstitutions.value = false
   }
@@ -104,10 +152,6 @@ const fetchInstitutions = async () => {
 watch(activeMenu, (val) => {
   if (val === '5') fetchInstitutions()
 })
-
-const selectPackage = (id: number) => {
-  console.log('选择机构', id)
-}
 
 onMounted(async () => {
   try {
@@ -563,6 +607,7 @@ const handleCreateFamilyRequest = async () => {
               <template #header>
                 <div class="card-header">
                   <span>体检机构列表</span>
+                  <ElButton type="primary" size="small" @click="router.push('/institutions')">查看全部</ElButton>
                 </div>
               </template>
               <div v-if="loadingInstitutions">
@@ -570,19 +615,23 @@ const handleCreateFamilyRequest = async () => {
               </div>
               <div v-else-if="institutions.length === 0" class="empty-state">
                 <el-empty description="暂无可用的体检机构" />
+                <div class="empty-hint">
+                  <p>没有找到可用的体检机构，请稍后再试</p>
+                </div>
               </div>
               <div v-else>
                 <el-collapse v-model="activeInstitution">
                   <el-collapse-item
-                    v-for="inst in institutions"
-                    :key="inst.ID"
-                    :title="inst.institution_name"
-                    :name="inst.ID">
-                    <p><strong>地址:</strong> {{ inst.institution_address }}</p>
-                    <p><strong>资质:</strong> {{ inst.institution_qualification }}</p>
-                    <p><strong>套餐:</strong> {{ inst.examination_package }}</p>
+                    v-for="(inst, index) in institutions"
+                    :key="inst?.ID || index"
+                    :title="inst?.institution_name || '未命名机构'"
+                    :name="inst?.ID || index">
+                    <p><strong>地址:</strong> {{ inst?.institution_address || '暂无地址' }}</p>
+                    <p><strong>资质:</strong> {{ inst?.institution_qualification || '暂无资质信息' }}</p>
+                    <p><strong>套餐:</strong> {{ inst?.examination_package || '暂无套餐信息' }}</p>
                     <div class="institution-actions">
-                      <ElButton type="primary" size="small" @click="selectPackage(inst.ID)">选择套餐</ElButton>
+                      <ElButton type="info" size="small" style="margin-right: 10px;" @click="inst?.ID ? router.push(`/institutions/${inst.ID}`) : ElMessage.warning('机构ID无效，无法查看详情')">查看详情</ElButton>
+                      <ElButton type="primary" size="small" @click="inst?.ID ? router.push(`/institutions/${inst.ID}`) : ElMessage.warning('机构ID无效，无法选择套餐')">选择套餐</ElButton>
                     </div>
                   </el-collapse-item>
                 </el-collapse>
@@ -697,6 +746,12 @@ const handleCreateFamilyRequest = async () => {
 .empty-state {
   text-align: center;
   padding: 20px;
+}
+
+.empty-hint {
+  margin-top: 10px;
+  color: #909399;
+  font-size: 14px;
 }
 
 .institution-actions {

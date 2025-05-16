@@ -19,12 +19,13 @@ func SetupInstitutionRouter(r *gin.Engine) {
 
 		// New APIs for institution viewing
 		institution.GET("", controllers.GetInstitutions)                                                      // Get User institutions
-		institution.GET("/:id", middlewares.RequireUserType(3, 2), controllers.GetInstitutionDetail)          // Get institution details
+		institution.GET("/:id", middlewares.RequireUserType(3, 2, 1), controllers.GetInstitutionDetail)          // Get institution details
 		institution.POST("/:id/plans", middlewares.RequireUserType(3, 2), controllers.CreateInstitutionPlans) // Create institution plans&items
 		institution.GET("/:id/plans", controllers.GetInstitutionPlans)                                        // Get institution Plans
 		institution.POST("/:id/:plan_id/item", middlewares.RequireUserType(3, 2), controllers.CreateInstitutionPlans)
 
-		institution.PATCH("/:id/update", middlewares.RequireUserType(3, 2), controllers.UpdateInsistutionPlanorItem) // 更新机构相关信息
-
+		institution.PATCH("/:id/update", middlewares.RequireUserType(3, 2), controllers.UpdateInstitution) // 更新机构基本信息
+		institution.PATCH("/:id/item", middlewares.RequireUserType(3, 2), controllers.UpdateInstitutionPlanorItem) // 更新套餐或检查项目信息
+		institution.DELETE("/:id", middlewares.RequireUserType(3, 2), controllers.DeleteInstitution) // 删除机构
 	}
 }

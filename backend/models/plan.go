@@ -2,14 +2,17 @@ package models
 
 import "gorm.io/gorm"
 
-// 套餐表，只存储套餐信息，plan_id，plan_name,organization_id(外键)
+// 套餐表，只存储套餐信息，plan_id，plan_name,organization_id(外键)以及价格、描述等
 type Plan struct {
 	gorm.Model
-	PlanName              string `gorm:"type:varchar(100);not null;unique;index;column:plan_name"`
-	RelationInstitutionID uint   `gorm:"not null;index;column:institution_id"`
+	PlanName              string  `gorm:"type:varchar(100);not null;unique;index;column:plan_name" json:"plan_name"`
+	RelationInstitutionID uint    `gorm:"not null;index;column:institution_id" json:"institution_id"`
+	PlanPrice             float64 `gorm:"type:decimal(10,2);default:0;column:plan_price" json:"plan_price"`
+	Description           string  `gorm:"type:text;column:description" json:"description"`
+	SuitableFor           string  `gorm:"type:varchar(255);column:suitable_for" json:"suitable_for"`
 
 	// Relations
-	ThisInstitution Institution `gorm:"foreignKey:RelationInstitutionID;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
+	ThisInstitution Institution `gorm:"foreignKey:RelationInstitutionID;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;" json:"-"`
 }
 
 // 体检套餐指标表，存储具体套餐的指标信息，item_id，item_name(主键),只保存信息，便于添加新的指标内容

@@ -20,7 +20,7 @@ const handleReview = async (id: number, approved: boolean) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
+        Authorization: `${token}`
       },
       body: JSON.stringify({ approved })
     })
@@ -45,7 +45,7 @@ const fetchPendingInstitutions = async () => {
     if (!token) throw new Error('未登录')
 
     const response = await fetch('/api/institutions/pending', {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `${token}` }
     })
 
     if (!response.ok) {

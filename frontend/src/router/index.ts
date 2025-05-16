@@ -22,13 +22,13 @@ const router = createRouter({
       path: '/institutions',
       name: 'institutions',
       component: () => import('@/views/InstitutionsView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, keepAlive: false }
     },
     {
       path: '/institutions/:id',
       name: 'institution-detail',
       component: () => import('@/views/InstitutionDetailView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, keepAlive: false }
     },
     {
       path: '/institution-manage',

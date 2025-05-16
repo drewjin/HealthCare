@@ -5,6 +5,8 @@ import (
 	"healthcare/models"
 	"net/http"
 
+	"slices"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,13 +22,7 @@ func RequireUserType(allowedTypes ...uint8) gin.HandlerFunc {
 			return
 		}
 
-		allowed := false
-		for _, t := range allowedTypes {
-			if user.UserType == t {
-				allowed = true
-				break
-			}
-		}
+		allowed := slices.Contains(allowedTypes, user.UserType)
 
 		if !allowed {
 			ctx.JSON(http.StatusForbidden, gin.H{
