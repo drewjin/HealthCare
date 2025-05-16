@@ -15,5 +15,9 @@ func SetupUserRouter(routers *gin.Engine) {
 		user.PUT("/users/:id/reset_pwd", controllers.ResetPwd)
 		// Add new endpoint to get institution by user ID
 		user.GET("/user/:id/institution", controllers.GetInstitutionByUserId)
+		
+		// Add routes for package selection
+		user.POST("/users/packages", controllers.SelectPackage)
+		user.GET("/users/:id/packages", controllers.GetUserPackages)
 	}
 }

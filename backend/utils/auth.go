@@ -20,7 +20,7 @@ func GenerateJWT(username string, userType uint8) (string, error) {
 		"exp":       time.Now().Add(time.Hour * 72).Unix(),
 	})
 	signedToken, err := token.SignedString([]byte("secret"))
-	return "Bearer " + signedToken, err
+	return "" + signedToken, err
 }
 
 func CheckPassword(password string, hashedPwd string) bool {

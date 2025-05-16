@@ -12,7 +12,16 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 </script>
 
 <template>
-  <RouterView />
+  <router-view v-slot="{ Component, route }">
+    <template v-if="route.meta.keepAlive">
+      <keep-alive>
+        <component :is="Component" :key="route.fullPath" />
+      </keep-alive>
+    </template>
+    <template v-else>
+      <component :is="Component" :key="route.fullPath" />
+    </template>
+  </router-view>
 </template>
 
 <style>
