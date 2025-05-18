@@ -8,6 +8,7 @@ import (
 	"healthcare/models"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -245,9 +246,12 @@ func CreateInstitutionPlans(ctx *gin.Context) {
 	}
 
 	var input struct {
-		PlanName        *string `json:"plan_name"` //允许没有套餐名称
-		HealthItem      string  `json:"health_item"`
-		ItemDescription *string `json:"item_description"` //允许没有描述
+		PlanName        *string  `json:"plan_name"` //允许没有套餐名称
+		HealthItem      string   `json:"health_item"`
+		ItemDescription *string  `json:"item_description"` //允许没有描述
+		PlanPrice       *float64 `json:"plan_price"`       // 套餐价格
+		Description     *string  `json:"description"`      // 套餐描述
+		SuitableFor     *string  `json:"suitable_for"`     // 适用人群
 	}
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -255,11 +259,23 @@ func CreateInstitutionPlans(ctx *gin.Context) {
 		})
 		return
 	}
+	fmt.Printf("Received input: %+v\n", input)
 
 	var newPlan models.Plan
 	newPlan.RelationInstitutionID = institution.ID
 	if planID == "" {
 		newPlan.PlanName = *input.PlanName
+
+		// 设置可选的套餐字段
+		if input.PlanPrice != nil {
+			newPlan.PlanPrice = *input.PlanPrice
+		}
+		if input.Description != nil {
+			newPlan.Description = *input.Description
+		}
+		if input.SuitableFor != nil {
+			newPlan.SuitableFor = *input.SuitableFor
+		}
 
 		// 检查套餐名称是否已存在
 		exists, err := utils.CheckExists(&models.Plan{}, "plan_name", *input.PlanName)
@@ -354,20 +370,21 @@ func GetInstitutionPlans(ctx *gin.Context) {
 		return
 	}
 
-	// 只允许查看已批准的机构的套餐
-	if institution.Status != 1 {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"error": "This institution is not approved",
-		})
-		return
-	}
-
 	// 获取用户身份
 	username := ctx.GetString("username")
 	var user models.User
 	if err := global.DB.Where("username = ?", username).First(&user).Error; err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{
 			"error": "User not found",
+		})
+		return
+	}
+
+	// 如果机构未批准，只有机构所有者和管理员才能查看套餐
+	// 但如果机构已批准，任何用户都可以查看套餐
+	if institution.Status != 1 && user.ID != institution.UserID && user.UserType != 2 {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error": "This institution is not approved",
 		})
 		return
 	}
@@ -389,33 +406,84 @@ func GetInstitutionPlans(ctx *gin.Context) {
 
 	// 获取套餐对应的指标信息
 	var planItems []models.PlanHeathItem
-	if err := global.DB.Where("plan_id IN ?", planIDs).Find(&planItems).Error; err != nil {
+	if err := global.DB.Where("plan_id IN ?", planIDs).Preload("ThisHeathItem").Find(&planItems).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
 
+	// 组织套餐详细信息以满足前端需要
+	type PlanDetail struct {
+		ID          uint    `json:"id"`
+		Name        string  `json:"name"`
+		Description string  `json:"description"`
+		SuitableFor string  `json:"suitable_for"`
+		Items       string  `json:"items"`
+		Price       float64 `json:"price"`
+	}
+
+	planDetails := make([]PlanDetail, 0, len(plans))
+
+	// 为每个套餐收集指标项
+	planItemsMap := make(map[uint][]models.PlanHeathItem)
+	for _, item := range planItems {
+		if _, exists := planItemsMap[item.RelationPlanId]; !exists {
+			planItemsMap[item.RelationPlanId] = make([]models.PlanHeathItem, 0)
+		}
+		planItemsMap[item.RelationPlanId] = append(planItemsMap[item.RelationPlanId], item)
+	}
+
+	// 构建每个套餐的详细信息
+	for _, plan := range plans {
+		items := planItemsMap[plan.ID]
+		itemNames := make([]string, 0, len(items))
+
+		// 收集所有指标项的名称
+		for _, item := range items {
+			if item.ThisHeathItem.ItemName != "" {
+				itemNames = append(itemNames, item.ThisHeathItem.ItemName)
+			}
+		}
+
+		// 如果没有描述，使用第一个项目的描述作为套餐描述
+		description := plan.Description
+		if description == "" && len(items) > 0 {
+			description = items[0].ItemDescription
+		}
+
+		planDetail := PlanDetail{
+			ID:          plan.ID,
+			Name:        plan.PlanName,
+			Description: description,
+			SuitableFor: plan.SuitableFor,
+			Items:       strings.Join(itemNames, ", "),
+			Price:       plan.PlanPrice,
+		}
+
+		fmt.Printf("Plan Detail: %+v\n", planDetail)
+		planDetails = append(planDetails, planDetail)
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"institution": institution,
-		"plans":       plans,
+		"plans":       planDetails,
 		"items":       planItems,
 	})
 }
 
-func UpdateInsistutionPlanorItem(ctx *gin.Context) {
+func UpdateInstitutionPlanorItem(ctx *gin.Context) {
 	institutionID := ctx.Param("id")
 
 	var input struct {
-		PlanID                   uint    `json:"plan_id"`
-		ItemID                   uint    `json:"item_id"`
-		ItemName                 *string `json:"item_name"`
-		ItemDescription          *string `json:"item_description"`
-		PlanName                 *string `json:"plan_name"`
-		InstitutionName          *string `json:"institution_name"`
-		InstitutionPhone         *string `json:"institution_phone"`
-		InstitutionAddress       *string `json:"institution_address"`
-		InstitutionQualification *string `json:"institution_qualification"`
+		PlanID          uint     `json:"plan_id"`
+		ItemID          *uint    `json:"item_id"`
+		ItemName        *string  `json:"item_name"`
+		ItemDescription *string  `json:"item_description"`
+		PlanName        *string  `json:"plan_name"`
+		PlanPrice       *float64 `json:"plan_price"`
+		PlanDescription *string  `json:"description"`
+		PlanSuitableFor *string  `json:"suitable_for"`
 	}
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -438,39 +506,35 @@ func UpdateInsistutionPlanorItem(ctx *gin.Context) {
 		return
 	}
 
-	// Update plan name
-	if input.PlanName != nil {
+	// Update plan name and other fields
+	if input.PlanName != nil && *input.PlanName != "" {
 		utils.UpdateIt(&models.Plan{}, input.PlanID, "plan_name", *input.PlanName)
 	}
 
-	// Update item name
-	if input.ItemName != nil {
-		utils.UpdateIt(&models.HealthItem{}, input.ItemID, "item_name", *input.ItemName)
+	// Update plan price
+	if input.PlanPrice != nil {
+		utils.UpdateIt(&models.Plan{}, input.PlanID, "plan_price", *input.PlanPrice)
 	}
 
-	// Update item description
-	if input.ItemDescription != nil {
-		utils.UpdateIt(&models.PlanHeathItem{}, input.ItemID, "item_description", *input.ItemDescription)
+	// Update plan description
+	if input.PlanDescription != nil && *input.PlanDescription != "" {
+		utils.UpdateIt(&models.Plan{}, input.PlanID, "description", *input.PlanDescription)
 	}
 
-	// Update institution Name
-	if input.InstitutionName != nil {
-		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_name", *input.InstitutionName)
+	// Update plan suitable for
+	if input.PlanSuitableFor != nil && *input.PlanSuitableFor != "" {
+		utils.UpdateIt(&models.Plan{}, input.PlanID, "suitable_for", *input.PlanSuitableFor)
 	}
+	if input.ItemID != nil {
+		// Update item name
+		if input.ItemName != nil && *input.ItemName != "" {
+			utils.UpdateIt(&models.HealthItem{}, input.ItemID, "item_name", *input.ItemName)
+		}
 
-	// Update institution Phone
-	if input.InstitutionPhone != nil {
-		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_phone", *input.InstitutionPhone)
-	}
-
-	// Update institution Address
-	if input.InstitutionAddress != nil {
-		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_address", *input.InstitutionAddress)
-	}
-
-	// Update institution Qualification
-	if input.InstitutionQualification != nil {
-		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_qualification", *input.InstitutionQualification)
+		// Update item description
+		if input.ItemDescription != nil {
+			utils.UpdateIt(&models.PlanHeathItem{}, input.ItemID, "item_description", *input.ItemDescription)
+		}
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
@@ -546,7 +610,7 @@ func DeleteInsistutionPlanonItem(ctx *gin.Context) {
 }
 
 // 删除套餐
-func DeleteInsistutionPlan(ctx *gin.Context) {
+func DeleteInstitutionPlan(ctx *gin.Context) {
 	var input struct {
 		PlanID uint `json:"plan_id"`
 	}
@@ -623,6 +687,3 @@ func DeleteInsistutionPlan(ctx *gin.Context) {
 	})
 
 }
-
-// 删除机构
-func DeleteInsistution(ctx *gin.Context) {}

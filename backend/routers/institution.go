@@ -18,24 +18,27 @@ func SetupInstitutionRouter(r *gin.Engine) {
 		institution.POST("/:id/review", middlewares.RequireUserType(2), controllers.ReviewInstitution)
 
 		// New APIs for institution viewing
+		// 获取用户的机构列表
 		institution.GET("", controllers.GetInstitutions)
-		// Get User institutions
-		institution.GET("/:id", middlewares.RequireUserType(3, 2), controllers.GetInstitutionDetail)
-		// Create institution plans&items
+		// 获取用户的机构列表
+		institution.GET("/:id", middlewares.RequireUserType(3, 2, 1), controllers.GetInstitutionDetail)
+		// 为指定机构添加套餐
 		institution.POST("/:id/plans", middlewares.RequireUserType(3, 2), controllers.CreateInstitutionPlans)
-		// Get institution Plans
+		// 获取指定机构的套餐列表
 		institution.GET("/:id/plans", controllers.GetInstitutionPlans)
-		// Get institution Plan Items
+		// 创建机构下的指定套餐的体检项目
 		institution.POST("/:id/:plan_id/item", middlewares.RequireUserType(3, 2), controllers.CreateInstitutionPlans)
 		// 更新机构相关信息
-		institution.PATCH("/:id/update", middlewares.RequireUserType(3, 2), controllers.UpdateInsistutionPlanorItem)
+		institution.PATCH("/:id/update", middlewares.RequireUserType(3, 2), controllers.UpdateInstitution)
+		// 更新套餐的体检项目信息
+		institution.PATCH("/:id/item", middlewares.RequireUserType(3, 2), controllers.UpdateInstitutionPlanorItem)
+
 		// 删除都是物理删除
-		// 删除机构相关信息,删除套餐内一个体检项目
+		// 删除套餐或检查项目信息,删除套餐内一个体检项目
 		institution.DELETE("/plan/item", middlewares.RequireUserType(3, 2), controllers.DeleteInsistutionPlanonItem)
 		// 删除套餐
-		institution.DELETE("/plan", middlewares.RequireUserType(3, 2), controllers.DeleteInsistutionPlan)
+		institution.DELETE("/plan", middlewares.RequireUserType(3, 2), controllers.DeleteInstitutionPlan)
 		// 删除机构
-		institution.DELETE("/", middlewares.RequireUserType(3, 2), controllers.DeleteInsistution)
-
+		institution.DELETE("/:id", middlewares.RequireUserType(3, 2), controllers.DeleteInstitution)
 	}
 }

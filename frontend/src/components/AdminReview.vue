@@ -16,11 +16,11 @@ const handleReview = async (id: number, approved: boolean) => {
     const token = localStorage.getItem('jwt')
     if (!token) throw new Error('未登录')
 
-    const response = await fetch(`http://localhost:3000/api/institutions/${id}/review`, {
+    const response = await fetch(`/api/institutions/${id}/review`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: token
+        Authorization: `${token}`
       },
       body: JSON.stringify({ approved })
     })
@@ -44,8 +44,8 @@ const fetchPendingInstitutions = async () => {
     const token = localStorage.getItem('jwt')
     if (!token) throw new Error('未登录')
 
-    const response = await fetch('http://localhost:3000/api/institutions/pending', {
-      headers: { Authorization: token }
+    const response = await fetch('/api/institutions/pending', {
+      headers: { Authorization: `${token}` }
     })
 
     if (!response.ok) {

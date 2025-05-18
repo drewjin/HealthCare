@@ -23,5 +23,10 @@ func SetupUserRouter(routers *gin.Engine) {
 		user.DELETE("/:id", middlewares.RequireUserType(2, 1), controllers.DeleteUser)
 		// 管理员更改用户权限
 		user.PATCH("/:id/permission", middlewares.RequireUserType(2), controllers.UpdateUserPermission)
+
+		// 用户选择套餐
+		user.POST("/packages", controllers.SelectPackage)
+		// 用户查看已经选择的套餐
+		user.GET("/:id/packages", controllers.GetUserPackages)
 	}
 }

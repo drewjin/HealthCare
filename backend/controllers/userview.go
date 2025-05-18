@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 查看该用户下的所有体检项目(包含所有体检套餐)
+// 查看该用户下的所有体检项目(只显示体检项目name与value)
 func GetAllItems(ctx *gin.Context) {
 	username := ctx.GetString("username")
 	// 通过username查找user表中对应的userid
@@ -74,7 +74,12 @@ func GetItemsByPlanID(c *gin.Context) {
 	}
 
 	// 根据planid，itemid查找userhealthitem表中对应的记录，并转换成output结构体
-	var outplanitems []interface{}
+	type output struct {
+		PlanName  string `json:"plan_name"`
+		ItemName  string `json:"item_name"`
+		ItemValue string `json:"item_value"`
+	}
+	var outplanitems []output
 
 	for _, item := range planItems {
 		var itemName string
@@ -89,14 +94,12 @@ func GetItemsByPlanID(c *gin.Context) {
 			return
 		}
 
-		outplanitems = append(outplanitems, struct {
-			PlanName  string `json:"plan_name"`
-			ItemName  string `json:"item_name"`
-			ItemValue string `json:"item_value"`
-		}{
+		outplanitems = append(outplanitems, output{
 			PlanName:  item.ThisPlan.PlanName,
 			ItemName:  itemName,
 			ItemValue: itemValue,
 		})
 	}
+
+	c.JSON(http.StatusOK, gin.H{"plan_items": outplanitems})
 }

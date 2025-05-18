@@ -6,7 +6,7 @@ app:
   frontend-port: "5173"
 
 database:
-  dsn: "root:123456@tcp(127.0.0.1:3306)/healthcare?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:123456@tcp(127.0.0.1:3306)/healthcare_db?charset=utf8mb4&parseTime=True&loc=Local"
   max-idle-conns: 11
   max-open-conns: 114
 
