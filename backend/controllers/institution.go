@@ -249,9 +249,9 @@ func CreateInstitutionPlans(ctx *gin.Context) {
 		PlanName        *string  `json:"plan_name"` //允许没有套餐名称
 		HealthItem      string   `json:"health_item"`
 		ItemDescription *string  `json:"item_description"` //允许没有描述
-		PlanPrice       *float64 `json:"plan_price"`      // 套餐价格
-		Description     *string  `json:"description"`     // 套餐描述
-		SuitableFor     *string  `json:"suitable_for"`    // 适用人群
+		PlanPrice       *float64 `json:"plan_price"`       // 套餐价格
+		Description     *string  `json:"description"`      // 套餐描述
+		SuitableFor     *string  `json:"suitable_for"`     // 适用人群
 	}
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -265,7 +265,7 @@ func CreateInstitutionPlans(ctx *gin.Context) {
 	newPlan.RelationInstitutionID = institution.ID
 	if planID == "" {
 		newPlan.PlanName = *input.PlanName
-		
+
 		// 设置可选的套餐字段
 		if input.PlanPrice != nil {
 			newPlan.PlanPrice = *input.PlanPrice
@@ -379,7 +379,7 @@ func GetInstitutionPlans(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	// 如果机构未批准，只有机构所有者和管理员才能查看套餐
 	// 但如果机构已批准，任何用户都可以查看套餐
 	if institution.Status != 1 && user.ID != institution.UserID && user.UserType != 2 {
@@ -424,7 +424,7 @@ func GetInstitutionPlans(ctx *gin.Context) {
 	}
 
 	planDetails := make([]PlanDetail, 0, len(plans))
-	
+
 	// 为每个套餐收集指标项
 	planItemsMap := make(map[uint][]models.PlanHeathItem)
 	for _, item := range planItems {
@@ -433,25 +433,25 @@ func GetInstitutionPlans(ctx *gin.Context) {
 		}
 		planItemsMap[item.RelationPlanId] = append(planItemsMap[item.RelationPlanId], item)
 	}
-	
+
 	// 构建每个套餐的详细信息
 	for _, plan := range plans {
 		items := planItemsMap[plan.ID]
 		itemNames := make([]string, 0, len(items))
-		
+
 		// 收集所有指标项的名称
 		for _, item := range items {
 			if item.ThisHeathItem.ItemName != "" {
 				itemNames = append(itemNames, item.ThisHeathItem.ItemName)
 			}
 		}
-		
+
 		// 如果没有描述，使用第一个项目的描述作为套餐描述
 		description := plan.Description
 		if description == "" && len(items) > 0 {
 			description = items[0].ItemDescription
 		}
-		
+
 		planDetail := PlanDetail{
 			ID:          plan.ID,
 			Name:        plan.PlanName,
@@ -460,7 +460,7 @@ func GetInstitutionPlans(ctx *gin.Context) {
 			Items:       strings.Join(itemNames, ", "),
 			Price:       plan.PlanPrice,
 		}
-		
+
 		fmt.Printf("Plan Detail: %+v\n", planDetail)
 		planDetails = append(planDetails, planDetail)
 	}
@@ -476,18 +476,14 @@ func UpdateInstitutionPlanorItem(ctx *gin.Context) {
 	institutionID := ctx.Param("id")
 
 	var input struct {
-		PlanID                   uint     `json:"plan_id"`
-		ItemID                   uint     `json:"item_id"`
-		ItemName                 *string  `json:"item_name"`
-		ItemDescription          *string  `json:"item_description"`
-		PlanName                 *string  `json:"plan_name"`
-		PlanPrice                *float64 `json:"plan_price"`
-		PlanDescription          *string  `json:"description"`
-		PlanSuitableFor          *string  `json:"suitable_for"`
-		InstitutionName          *string  `json:"institution_name"`
-		InstitutionPhone         *string  `json:"institution_phone"`
-		InstitutionAddress       *string  `json:"institution_address"`
-		InstitutionQualification *string  `json:"institution_qualification"`
+		PlanID          uint     `json:"plan_id"`
+		ItemID          *uint    `json:"item_id"`
+		ItemName        *string  `json:"item_name"`
+		ItemDescription *string  `json:"item_description"`
+		PlanName        *string  `json:"plan_name"`
+		PlanPrice       *float64 `json:"plan_price"`
+		PlanDescription *string  `json:"description"`
+		PlanSuitableFor *string  `json:"suitable_for"`
 	}
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -511,56 +507,183 @@ func UpdateInstitutionPlanorItem(ctx *gin.Context) {
 	}
 
 	// Update plan name and other fields
-	if input.PlanName != nil {
+	if input.PlanName != nil && *input.PlanName != "" {
 		utils.UpdateIt(&models.Plan{}, input.PlanID, "plan_name", *input.PlanName)
 	}
-	
+
 	// Update plan price
 	if input.PlanPrice != nil {
 		utils.UpdateIt(&models.Plan{}, input.PlanID, "plan_price", *input.PlanPrice)
 	}
-	
+
 	// Update plan description
-	if input.PlanDescription != nil {
+	if input.PlanDescription != nil && *input.PlanDescription != "" {
 		utils.UpdateIt(&models.Plan{}, input.PlanID, "description", *input.PlanDescription)
 	}
-	
+
 	// Update plan suitable for
-	if input.PlanSuitableFor != nil {
+	if input.PlanSuitableFor != nil && *input.PlanSuitableFor != "" {
 		utils.UpdateIt(&models.Plan{}, input.PlanID, "suitable_for", *input.PlanSuitableFor)
 	}
+	if input.ItemID != nil {
+		// Update item name
+		if input.ItemName != nil && *input.ItemName != "" {
+			utils.UpdateIt(&models.HealthItem{}, input.ItemID, "item_name", *input.ItemName)
+		}
 
-	// Update item name
-	if input.ItemName != nil {
-		utils.UpdateIt(&models.HealthItem{}, input.ItemID, "item_name", *input.ItemName)
-	}
-
-	// Update item description
-	if input.ItemDescription != nil {
-		utils.UpdateIt(&models.PlanHeathItem{}, input.ItemID, "item_description", *input.ItemDescription)
-	}
-
-	// Update institution Name
-	if input.InstitutionName != nil {
-		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_name", *input.InstitutionName)
-	}
-
-	// Update institution Phone
-	if input.InstitutionPhone != nil {
-		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_phone", *input.InstitutionPhone)
-	}
-
-	// Update institution Address
-	if input.InstitutionAddress != nil {
-		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_address", *input.InstitutionAddress)
-	}
-
-	// Update institution Qualification
-	if input.InstitutionQualification != nil {
-		utils.UpdateIt(&models.Institution{}, institution.ID, "institution_qualification", *input.InstitutionQualification)
+		// Update item description
+		if input.ItemDescription != nil {
+			utils.UpdateIt(&models.PlanHeathItem{}, input.ItemID, "item_description", *input.ItemDescription)
+		}
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "更新成功"})
+
+}
+
+// 删除套餐内一个体检项目
+func DeleteInsistutionPlanonItem(ctx *gin.Context) {
+	var input struct {
+		PlanID uint `json:"plan_id"`
+		ItemID uint `json:"item_id"`
+	}
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	fmt.Println("input:", input)
+
+	// 根据planid，itemid查找删除
+	var planheathitem models.PlanHeathItem
+	if err := global.DB.Where("plan_id = ? AND item_id = ?", input.PlanID, input.ItemID).First(&planheathitem).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "套餐内体检项目不存在",
+		})
+		return
+	}
+
+	// 删除套餐内体检项目
+	if err := global.DB.Unscoped().Delete(&planheathitem).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "删除失败: " + err.Error(),
+		})
+		return
+	}
+
+	var remainitem []models.PlanHeathItem
+	if err := global.DB.Where("item_id = ?", input.ItemID).Find(&remainitem).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "数据库错误" + err.Error(),
+		})
+		return
+	}
+
+	// 如果没有其他套餐引用该体检项目，则删除该体检项目
+	if len(remainitem) == 0 {
+		var healthitem models.HealthItem
+		if err := global.DB.Where("id = ?", input.ItemID).First(&healthitem).Error; err != nil {
+			ctx.JSON(http.StatusNotFound, gin.H{
+				"error": "体检项目不存在",
+			})
+			return
+		}
+		// 删除体检项目
+		if err := global.DB.Unscoped().Delete(&healthitem).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "删除失败: " + err.Error(),
+			})
+			return
+		}
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "体检项目删除成功",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "套餐内体检项目删除成功",
+	})
+
+}
+
+// 删除套餐
+func DeleteInstitutionPlan(ctx *gin.Context) {
+	var input struct {
+		PlanID uint `json:"plan_id"`
+	}
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	fmt.Println("input:", input)
+
+	// 删除套餐plan
+	var plan models.Plan
+	if err := global.DB.Where("id = ?", input.PlanID).First(&plan).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "套餐不存在",
+		})
+		return
+	}
+
+	// 删除套餐相关评论
+	if err := global.DB.Where("plan_id = ?", input.PlanID).Unscoped().Delete(&models.Commentary{}).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "删除套餐评论失败: " + err.Error(),
+		})
+		return
+	}
+
+	// 删除套餐相关体检项目
+	var planheathitems []models.PlanHeathItem
+	if err := global.DB.Where("plan_id = ?", input.PlanID).Find(&planheathitems).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "套餐内体检项目不存在",
+		})
+		return
+	}
+
+	for _, item := range planheathitems {
+		if err := global.DB.Where("id = ?", item.ID).Unscoped().Delete(&models.PlanHeathItem{}).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "删除套餐内体检项目失败: " + err.Error(),
+			})
+			return
+		}
+
+		// 查找相同体检项目数目
+		var count int64
+		if err := global.DB.Model(&models.PlanHeathItem{}).Where("item_id = ?", item.RelationHealthItemId).Count(&count).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"errors": "统计删除套餐内体相同检项目失败" + err.Error(),
+			})
+		}
+
+		if count == 0 {
+			if err := global.DB.Where("id = ?", item.RelationHealthItemId).Unscoped().Delete(&models.HealthItem{}).Error; err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{
+					"error": "删除套餐内体检项目失败: " + err.Error(),
+				})
+				return
+			}
+		}
+	}
+
+	if err := global.DB.Unscoped().Delete(&plan).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "删除失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "套餐删除成功",
+	})
 
 }

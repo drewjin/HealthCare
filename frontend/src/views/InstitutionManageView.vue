@@ -189,7 +189,7 @@ const getUserInfo = async () => {
     
     // 获取用户的机构信息
     try {
-      const institutionResponse = await axios.get(`/api/user/${uid}/institution`, {
+      const institutionResponse = await axios.get(`/api/users/${uid}/institution`, {
         headers: { Authorization: `${token}` }
       })
       

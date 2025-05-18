@@ -2,7 +2,7 @@ package models
 
 import "gorm.io/gorm"
 
-type Commentaries struct {
+type Commentary struct {
 	gorm.Model
 	RelationUserId uint   `gorm:"not null;index;column:user_id"`
 	RelationPlanId uint   `gorm:"not null;index;column:plan_id"`

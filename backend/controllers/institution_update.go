@@ -77,15 +77,15 @@ func UpdateInstitution(ctx *gin.Context) {
 	}
 
 	// 更新其他字段
-	if input.InstitutionPhone != nil {
+	if input.InstitutionPhone != nil && *input.InstitutionPhone != "" {
 		institution.InstitutionPhone = *input.InstitutionPhone
 	}
 
-	if input.InstitutionAddress != nil {
+	if input.InstitutionAddress != nil && *input.InstitutionAddress != "" {
 		institution.InstitutionAddress = *input.InstitutionAddress
 	}
 
-	if input.InstitutionQualification != nil {
+	if input.InstitutionQualification != nil && *input.InstitutionQualification != "" {
 		institution.InstitutionQualification = *input.InstitutionQualification
 	}
 
@@ -98,7 +98,7 @@ func UpdateInstitution(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message": "机构信息更新成功",
+		"message":     "机构信息更新成功",
 		"institution": institution,
 	})
 }

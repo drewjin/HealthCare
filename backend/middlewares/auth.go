@@ -1,7 +1,7 @@
 package middlewares
 
 import (
-	"healthcare/utils"
+	"healthcare/controllers/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

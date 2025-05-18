@@ -2,9 +2,9 @@ package controllers
 
 import (
 	"errors"
+	"healthcare/controllers/utils"
 	"healthcare/global"
 	"healthcare/models"
-	"healthcare/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

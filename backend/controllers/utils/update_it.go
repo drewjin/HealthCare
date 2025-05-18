@@ -4,7 +4,7 @@ import (
 	"healthcare/global"
 )
 
-func UpdateIt(model interface{}, id uint, field string, value interface{}) (bool, error) {
+func UpdateIt(model interface{}, id interface{}, field string, value interface{}) (bool, error) {
 	result := global.DB.Model(model).Where("id = ?", id).Update(field, value)
 	if result.Error != nil {
 		return false, result.Error

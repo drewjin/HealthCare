@@ -25,7 +25,7 @@ type HealthItem struct {
 type PlanHeathItem struct {
 	gorm.Model
 	RelationPlanId       uint   `gorm:"not null;index;column:plan_id"`
-	RelationHealthItemId uint   `gorm:"not null;index;column:health_item_id"`
+	RelationHealthItemId uint   `gorm:"not null;index;column:item_id"`
 	ItemDescription      string `gorm:"type:varchar(100);index;column:item_description"`
 
 	// Relations

@@ -59,13 +59,13 @@ func SelectPackage(ctx *gin.Context) {
 
 	// Check if the user has already selected this package
 	var existingSelection models.UserPackage
-	result := global.DB.Where("user_id = ? AND institution_id = ? AND plan_id = ?", 
+	result := global.DB.Where("user_id = ? AND institution_id = ? AND plan_id = ?",
 		user.ID, input.InstitutionID, input.PlanID).First(&existingSelection)
-	
+
 	if result.Error == nil {
 		// Already exists
 		ctx.JSON(http.StatusConflict, gin.H{
-			"message": "You have already selected this package",
+			"message":      "You have already selected this package",
 			"user_package": existingSelection,
 		})
 		return
