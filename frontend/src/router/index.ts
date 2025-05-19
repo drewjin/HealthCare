@@ -48,12 +48,13 @@ const router = createRouter({
       component: () => import('@/views/PlanItemsView.vue'),
       meta: { requiresAuth: true }
     },
-    {
-      path: '/ocr',
-      name: 'ocr',
-      component: () => import('@/views/OcrView.vue'),
-      meta: { requiresAuth: true }
-    }
+    // OCR function is now integrated into the dashboard
+    // {
+    //   path: '/ocr',
+    //   name: 'ocr',
+    //   component: () => import('@/views/OcrView.vue'),
+    //   meta: { requiresAuth: true }
+    // }
   ]
 })
 
