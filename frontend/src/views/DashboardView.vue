@@ -450,6 +450,24 @@ const submitOcr = async () => {
             <el-icon><tools /></el-icon>
             <span>机构管理</span>
           </ElMenuItem>
+          
+          <!-- 添加用户体检数据 -->
+          <ElMenuItem index="8" v-if="userType === 3 || userType === 2" @click="router.push('/add-user-data')">
+            <el-icon><List /></el-icon>
+            <span>添加用户体检数据</span>
+          </ElMenuItem>
+          
+          <!-- 管理健康检查项目 -->
+          <ElMenuItem index="9" v-if="userType === 3 || userType === 2" @click="router.push('/health-items')">
+            <el-icon><List /></el-icon>
+            <span>健康检查项目管理</span>
+          </ElMenuItem>
+          
+          <!-- 健康指标字符串管理 -->
+          <ElMenuItem index="10" v-if="userType === 3 || userType === 2" @click="router.push('/health-item-string')">
+            <el-icon><List /></el-icon>
+            <span>健康指标字符串管理</span>
+          </ElMenuItem>
         </ElMenu>
       </ElAside>
       

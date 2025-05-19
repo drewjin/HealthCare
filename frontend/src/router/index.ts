@@ -48,6 +48,30 @@ const router = createRouter({
       component: () => import('@/views/PlanItemsView.vue'),
       meta: { requiresAuth: true }
     },
+    {
+      path: '/health-items',
+      name: 'health-items',
+      component: () => import('@/views/HealthItemsView.vue'),
+      meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
+    },
+    {
+      path: '/health-item-string',
+      name: 'health-item-string',
+      component: () => import('@/views/HealthItemStringView.vue'),
+      meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
+    },
+    {
+      path: '/add-user-data',
+      name: 'add-user-data',
+      component: () => import('@/views/AddUserDataView.vue'),
+      meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
+    },
+    {
+      path: '/add-user-data/:customer_id/:plan_id',
+      name: 'add-user-data-detail',
+      component: () => import('@/components/AddUserHealthData.vue'),
+      meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
+    },
     // OCR function is now integrated into the dashboard
     // {
     //   path: '/ocr',
@@ -62,6 +86,14 @@ router.beforeEach((to, _, next) => {
   const token = localStorage.getItem('jwt')
   if (to.meta.requiresAuth && !token) {
     next('/login')
+  } else if (to.meta.userTypes && Array.isArray(to.meta.userTypes)) {
+    // Check user type if required
+    const userType = parseInt(localStorage.getItem('userType') || '0')
+    if (!to.meta.userTypes.includes(userType)) {
+      next('/dashboard')
+    } else {
+      next()
+    }
   } else {
     next()
   }

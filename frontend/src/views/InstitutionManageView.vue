@@ -46,6 +46,7 @@
               
               <div class="institution-actions" v-if="institution.status === 1">
                 <el-button type="primary" @click="goToDetail">查看详情页面</el-button>
+                <el-button type="success" @click="goToAddUserData">添加用户体检数据</el-button>
                 <el-button type="danger" @click="confirmDeleteInstitution">删除机构</el-button>
               </div>
               
@@ -256,10 +257,56 @@ const goToDetail = () => {
   router.push(`/institutions/${institution.value.ID}`)
 }
 
+// 前往主页
+const goToDashboard = () => {
+  router.push('/dashboard')
+}
+
+// 前往添加用户体检数据页面
+const goToAddUserData = () => {
+  router.push('/add-user-data')
+}
+
+// 删除机构确认
+const confirmDeleteInstitution = () => {
+  ElMessageBox.confirm(
+    '确定要删除此机构吗？此操作不可逆。',
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  )
+    .then(async () => {
+      try {
+        const token = localStorage.getItem('jwt')
+        await axios.delete(`/api/institutions/${institution.value.ID}`, {
+          headers: { Authorization: `${token}` }
+        })
+        ElMessage.success('机构已成功删除')
+        hasInstitution.value = false
+        institution.value = {
+          ID: 0,
+          institution_name: '',
+          institution_address: '',
+          institution_qualification: '',
+          status: 0
+        }
+      } catch (error) {
+        console.error('Error deleting institution:', error)
+        ElMessage.error('删除机构失败')
+      }
+    })
+    .catch(() => {
+      ElMessage.info('已取消删除')
+    })
+}
+
 // 获取状态文本
 const getStatusText = (status: number): string => {
   switch (status) {
-    case 0: return '待审核'
+    case 0: return '审核中'
     case 1: return '已批准'
     case 2: return '已拒绝'
     default: return '未知状态'
@@ -274,64 +321,6 @@ const getStatusType = (status: number): string => {
     case 2: return 'danger'
     default: return 'info'
   }
-}
-
-// 确认删除机构
-const confirmDeleteInstitution = () => {
-  ElMessageBox.confirm(
-    '确定要删除此机构吗？此操作将永久删除机构及其所有套餐信息，不可恢复。',
-    '删除确认',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    }
-  ).then(() => {
-    deleteInstitution()
-  }).catch(() => {
-    // 取消删除
-    ElMessage({
-      type: 'info',
-      message: '已取消删除'
-    })
-  })
-}
-
-// 删除机构
-const deleteInstitution = async () => {
-  try {
-    const token = localStorage.getItem('jwt')
-    
-    if (!token || !institution.value.ID) {
-      ElMessage.error('参数无效，无法删除机构')
-      return
-    }
-    
-    await axios.delete(`/api/institutions/${institution.value.ID}`, {
-      headers: { Authorization: `${token}` }
-    })
-    
-    ElMessage.success('机构已成功删除')
-    
-    // 重置状态
-    hasInstitution.value = false
-    institution.value = {
-      ID: 0,
-      institution_name: '',
-      institution_address: '',
-      institution_qualification: '',
-      status: 0
-    }
-    
-  } catch (error) {
-    console.error('删除机构失败:', error)
-    ElMessage.error('删除机构失败，请稍后重试')
-  }
-}
-
-// 前往主页
-const goToDashboard = () => {
-  router.push('/dashboard')
 }
 
 onMounted(() => {

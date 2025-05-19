@@ -15,5 +15,5 @@ type UserPackage struct {
 	// Relations
 	User        User        `json:"user" gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
 	Institution Institution `json:"institution" gorm:"foreignKey:InstitutionID;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
-	Plan        Plan        `json:"plan" gorm:"foreignKey:PlanID;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
+	Plan        Plan        `json:"plan" gorm:"foreignKey:PlanID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }

@@ -25,10 +25,11 @@ type HealthItem struct {
 type PlanHeathItem struct {
 	gorm.Model
 	RelationPlanId       uint   `gorm:"not null;index;column:plan_id"`
-	RelationHealthItemId uint   `gorm:"not null;index;column:item_id"`
+	RelationHealthItemId uint   `gorm:"not null;index;column:health_item_id"`
 	ItemDescription      string `gorm:"type:varchar(100);index;column:item_description"`
+	ItemMetrics          string `gorm:"type:text;column:item_metrics"` // Stores key-value metrics as JSON
 
 	// Relations
-	ThisPlan      Plan       `gorm:"foreignKey:RelationPlanId;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
+	ThisPlan      Plan       `gorm:"foreignKey:RelationPlanId;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	ThisHeathItem HealthItem `gorm:"foreignKey:RelationHealthItemId;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
 }

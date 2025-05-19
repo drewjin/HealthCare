@@ -28,3 +28,9 @@
 2025-05-19 14:02:05,882 - ocr_service - INFO - 未找到结构化数据，返回原始文本段落
 2025-05-19 14:02:05,884 - ocr_service - INFO - 返回结果: {'文本1': '血压               124', '文本2': '血脂               125', '文本3': '骨质            45214'}
 2025-05-19 14:02:05,888 - werkzeug - INFO - 127.0.0.1 - - [19/May/2025 14:02:05] "POST /ocr HTTP/1.1" 200 -
+2025-05-20 00:25:15,215 - ocr_service - INFO - 启动OCR服务在 http://127.0.0.1:8080
+2025-05-20 00:25:15,219 - werkzeug - INFO -  * Running on http://127.0.0.1:8080/ (Press CTRL+C to quit)
+2025-05-20 00:25:15,220 - werkzeug - INFO -  * Restarting with stat
+2025-05-20 00:25:15,347 - ocr_service - INFO - 启动OCR服务在 http://127.0.0.1:8080
+2025-05-20 00:25:15,349 - werkzeug - WARNING -  * Debugger is active!
+2025-05-20 00:25:15,355 - werkzeug - INFO -  * Debugger PIN: 889-784-371

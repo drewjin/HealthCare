@@ -20,6 +20,6 @@ type UserHealthItem struct {
 
 	// Relations
 	ThisUser      User       `gorm:"foreignKey:RelationUserId;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
-	ThisPlan      Plan       `gorm:"foreignKey:RelationPlanId;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
+	ThisPlan      Plan       `gorm:"foreignKey:RelationPlanId;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	ThisHeathItem HealthItem `gorm:"foreignKey:RelationHealthItemId;references:ID;constraint:OnUpdate:RESTRICT,OnDelete:RESTRICT;"`
 }

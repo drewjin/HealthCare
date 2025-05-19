@@ -42,7 +42,23 @@ const handleLogin = async () => {
     if (!response.ok) throw new Error(data.error || '登录失败');
     
     localStorage.setItem('jwt', data.token)
-    localStorage.setItem('uid', data.uid)  
+    localStorage.setItem('uid', data.uid)
+    
+    // Get user type and store it
+    try {
+      const userResponse = await fetch(`http://localhost:3000/api/users/${data.uid}/profile`, {
+        method: 'GET',
+        headers: { Authorization: data.token },
+      })
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        if (userData && userData.data && userData.data.user_type) {
+          localStorage.setItem('userType', userData.data.user_type.toString())
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get user type', error)
+    }
 
     router.push('/dashboard')  
   } catch (error) {

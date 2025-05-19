@@ -261,9 +261,25 @@ func CreateInstitutionPlans(ctx *gin.Context) {
 	}
 	fmt.Printf("Received input: %+v\n", input)
 
+	// 验证必要的输入字段
+	if input.HealthItem == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "健康项目名称是必填的",
+		})
+		return
+	}
+
+	// 将中文名称添加到日志
+	fmt.Printf("添加健康项目: '%s', 机构ID: %s, 套餐ID: %s\n", input.HealthItem, institutionID, planID)
+
 	var newPlan models.Plan
 	newPlan.RelationInstitutionID = institution.ID
 	if planID == "" {
+		// 检查plan_name是否提供，未提供时使用默认值
+		if input.PlanName == nil {
+			defaultName := "新套餐"
+			input.PlanName = &defaultName
+		}
 		newPlan.PlanName = *input.PlanName
 
 		// 设置可选的套餐字段
@@ -307,31 +323,54 @@ func CreateInstitutionPlans(ctx *gin.Context) {
 		}
 	}
 
+	// 打印健康项目名称用于调试
+	fmt.Printf("Looking for health item: '%s'\n", input.HealthItem)
+
 	var newHealthItem models.HealthItem
 	newHealthItem.ItemName = input.HealthItem
-	// 检查指标名称是否已存在
-	exists, err := utils.CheckExists(&models.HealthItem{}, "item_name", input.HealthItem)
-	if err != nil {
+	
+	// 先检查健康项目是否已存在
+	var existingItem models.HealthItem
+	findErr := global.DB.Where("item_name = ?", input.HealthItem).First(&existingItem).Error
+	
+	// 如果已存在，则使用现有的健康项目
+	if findErr == nil {
+		fmt.Printf("Found existing health item with ID: %d\n", existingItem.ID)
+		newHealthItem = existingItem
+	} else if errors.Is(findErr, gorm.ErrRecordNotFound) {
+		// 如果不存在，则创建新的健康项目
+		fmt.Printf("Creating new health item: '%s'\n", input.HealthItem)
+		if createErr := global.DB.Create(&newHealthItem).Error; createErr != nil {
+			fmt.Printf("Error creating health item: %v\n", createErr)
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "创建健康检查项目失败: " + createErr.Error(),
+			})
+			return
+		}
+		fmt.Printf("Successfully created health item with ID: %d\n", newHealthItem.ID)
+	} else {
+		// 查询过程中出现其他错误
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "数据库错误: " + err.Error(),
+			"error": "查询健康检查项目失败: " + findErr.Error(),
 		})
 		return
 	}
-	if !exists {
-		if err := global.DB.Create(&newHealthItem).Error; err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error": err.Error(),
-			})
-			return
-		}
-	} else {
-		// 已存在则查出ID
-		if err := global.DB.Where("item_name = ?", input.HealthItem).First(&newHealthItem).Error; err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error": "查询已存在指标失败: " + err.Error(),
-			})
-			return
-		}
+
+	// 检查此套餐是否已包含该健康项目
+	var existingPlanItem models.PlanHeathItem
+	planItemErr := global.DB.Where("plan_id = ? AND item_id = ?", newPlan.ID, newHealthItem.ID).First(&existingPlanItem).Error
+	if planItemErr == nil {
+		// 已存在此项目，返回409冲突错误
+		ctx.JSON(http.StatusConflict, gin.H{
+			"error": fmt.Sprintf("此套餐已包含健康项目: %s", input.HealthItem),
+		})
+		return
+	} else if !errors.Is(planItemErr, gorm.ErrRecordNotFound) {
+		// 如果是其他错误（不是记录未找到），返回500错误
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "检查套餐项目关系时出错: " + planItemErr.Error(),
+		})
+		return
 	}
 
 	var newPlanHealthItem models.PlanHeathItem
@@ -623,61 +662,136 @@ func DeleteInstitutionPlan(ctx *gin.Context) {
 
 	fmt.Println("input:", input)
 
-	// 删除套餐plan
-	var plan models.Plan
-	if err := global.DB.Where("id = ?", input.PlanID).First(&plan).Error; err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"error": "套餐不存在",
+	// Start a transaction
+	tx := global.DB.Begin()
+
+	// Delete user_packages associated with the plan (Hard Delete)
+	// First verify if any user_packages exist for this plan
+	var userPackagesCount int64
+	if err := tx.Model(&models.UserPackage{}).Where("plan_id = ?", input.PlanID).Count(&userPackagesCount).Error; err != nil {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "检查用户套餐关联失败: " + err.Error(),
+		})
+		return
+	}
+	
+	if userPackagesCount > 0 {
+		if err := tx.Unscoped().Where("plan_id = ?", input.PlanID).Delete(&models.UserPackage{}).Error; err != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "删除用户套餐关联失败: " + err.Error(),
+			})
+			return
+		}
+	}
+
+	// Delete user_health_items associated with the plan (Hard Delete)
+	if err := tx.Unscoped().Where("plan_id = ?", input.PlanID).Delete(&models.UserHealthItem{}).Error; err != nil {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "删除用户健康项目失败: " + err.Error(),
 		})
 		return
 	}
 
-	// 删除套餐相关评论
-	if err := global.DB.Where("plan_id = ?", input.PlanID).Unscoped().Delete(&models.Commentary{}).Error; err != nil {
+	// Delete commentaries associated with the plan (Hard Delete)
+	if err := tx.Unscoped().Where("plan_id = ?", input.PlanID).Delete(&models.Commentary{}).Error; err != nil {
+		tx.Rollback()
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": "删除套餐评论失败: " + err.Error(),
 		})
 		return
 	}
 
-	// 删除套餐相关体检项目
-	var planheathitems []models.PlanHeathItem
-	if err := global.DB.Where("plan_id = ?", input.PlanID).Find(&planheathitems).Error; err != nil {
+	// Delete PlanHeathItems and conditionally HealthItems associated with the plan (Hard Deletes)
+	var planHeathItems []models.PlanHeathItem
+	if err := tx.Where("plan_id = ?", input.PlanID).Find(&planHeathItems).Error; err != nil {
+		tx.Rollback()
 		ctx.JSON(http.StatusNotFound, gin.H{
-			"error": "套餐内体检项目不存在",
+			"error": "查找套餐内体检项目失败: " + err.Error(),
 		})
 		return
 	}
 
-	for _, item := range planheathitems {
-		if err := global.DB.Where("id = ?", item.ID).Unscoped().Delete(&models.PlanHeathItem{}).Error; err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error": "删除套餐内体检项目失败: " + err.Error(),
-			})
+	for _, phi := range planHeathItems {
+		// Delete PlanHeathItem
+		if err := tx.Unscoped().Where("id = ?", phi.ID).Delete(&models.PlanHeathItem{}).Error; err != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "删除套餐内体检项目关联失败: " + err.Error()})
 			return
 		}
 
-		// 查找相同体检项目数目
+		// Check if the related HealthItem is still used by other PlanHeathItems
 		var count int64
-		if err := global.DB.Model(&models.PlanHeathItem{}).Where("item_id = ?", item.RelationHealthItemId).Count(&count).Error; err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"errors": "统计删除套餐内体相同检项目失败" + err.Error(),
-			})
+		if err := tx.Model(&models.PlanHeathItem{}).Where("item_id = ?", phi.RelationHealthItemId).Count(&count).Error; err != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "统计关联体检项目使用情况失败: " + err.Error()})
+			return
 		}
 
 		if count == 0 {
-			if err := global.DB.Where("id = ?", item.RelationHealthItemId).Unscoped().Delete(&models.HealthItem{}).Error; err != nil {
-				ctx.JSON(http.StatusInternalServerError, gin.H{
-					"error": "删除套餐内体检项目失败: " + err.Error(),
-				})
+			// If not used by others, delete the HealthItem
+			if err := tx.Unscoped().Where("id = ?", phi.RelationHealthItemId).Delete(&models.HealthItem{}).Error; err != nil {
+				tx.Rollback()
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "删除体检项目失败: " + err.Error()})
 				return
 			}
 		}
 	}
 
-	if err := global.DB.Unscoped().Delete(&plan).Error; err != nil {
+	// Fetch the plan to be deleted
+	var plan models.Plan
+	if err := tx.Where("id = ?", input.PlanID).First(&plan).Error; err != nil {
+	    tx.Rollback()
+	    if errors.Is(err, gorm.ErrRecordNotFound) {
+	        ctx.JSON(http.StatusNotFound, gin.H{"error": "套餐不存在"})
+	    } else {
+	        ctx.JSON(http.StatusInternalServerError, gin.H{"error": "查找套餐失败: " + err.Error()})
+	    }
+	    return
+	}
+
+	// Finally, delete the Plan itself (Hard Delete)
+	if err := tx.Unscoped().Delete(&plan).Error; err != nil {
+		tx.Rollback()
+		// Log the detailed error for debugging
+		fmt.Printf("Error when deleting plan ID %d: %s\n", input.PlanID, err.Error())
+		
+		// Check if it's a foreign key constraint error
+		if strings.Contains(err.Error(), "foreign key constraint fails") {
+			// Try to identify which relations still exist
+			var remainingRelations string
+			
+			// Check for user packages
+			var pkgCount int64
+			tx.Model(&models.UserPackage{}).Where("plan_id = ?", input.PlanID).Count(&pkgCount)
+			if pkgCount > 0 {
+				remainingRelations += fmt.Sprintf("用户套餐关联(%d) ", pkgCount)
+			}
+			
+			// Check for user health items
+			var itemCount int64
+			tx.Model(&models.UserHealthItem{}).Where("plan_id = ?", input.PlanID).Count(&itemCount)
+			if itemCount > 0 {
+				remainingRelations += fmt.Sprintf("用户健康项目(%d) ", itemCount)
+			}
+			
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "删除套餐失败: 存在外键约束，请先删除套餐相关的" + remainingRelations,
+			})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "删除套餐失败: " + err.Error(),
+			})
+		}
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "删除失败: " + err.Error(),
+			"error": "提交事务失败: " + err.Error(),
 		})
 		return
 	}

@@ -41,7 +41,7 @@ func DeleteInstitution(ctx *gin.Context) {
 
 	// 开始事务
 	tx := global.DB.Begin()
-	
+
 	// 先删除机构关联的套餐项目
 	var plans []models.Plan
 	if err := tx.Where("institution_id = ?", institution.ID).Find(&plans).Error; err != nil {
@@ -51,13 +51,13 @@ func DeleteInstitution(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	// 获取套餐ID列表
 	planIDs := make([]uint, 0, len(plans))
 	for _, plan := range plans {
 		planIDs = append(planIDs, plan.ID)
 	}
-	
+
 	// 如果有套餐，删除套餐对应的检查项目关联
 	if len(planIDs) > 0 {
 		if err := tx.Where("plan_id IN ?", planIDs).Delete(&models.PlanHeathItem{}).Error; err != nil {
@@ -67,9 +67,9 @@ func DeleteInstitution(ctx *gin.Context) {
 			})
 			return
 		}
-		
+
 		// 删除套餐
-		if err := tx.Where("institution_id = ?", institution.ID).Delete(&models.Plan{}).Error; err != nil {
+		if err := tx.Where("relation_institution_id = ?", institution.ID).Delete(&models.Plan{}).Error; err != nil {
 			tx.Rollback()
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Failed to delete institution plans: " + err.Error(),
@@ -77,7 +77,7 @@ func DeleteInstitution(ctx *gin.Context) {
 			return
 		}
 	}
-	
+
 	// 最后删除机构
 	if err := tx.Delete(&institution).Error; err != nil {
 		tx.Rollback()
