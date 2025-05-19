@@ -479,22 +479,23 @@ const handleCreateFamilyRequest = async () => {
         <!-- 管理员面板 -->
         <div v-if="activeMenu === '2' && userType === 2">
           <AdminReview />
-        </div>
-
-        <!-- 普通用户其他面板 -->
-        <template v-if="userType === 1">
-          <!-- 健康记录面板 -->
-          <div v-if="activeMenu === '2'">
-            <ElCard shadow="hover">
-              <template #header>
-                <div class="card-header">
-                  <span>健康记录</span>
-                  <ElButton type="primary">添加记录</ElButton>
+        </div>          <!-- 普通用户其他面板 -->
+          <template v-if="userType === 1">
+            <!-- 健康记录面板 -->
+            <div v-if="activeMenu === '2'">
+              <ElCard shadow="hover">
+                <template #header>
+                  <div class="card-header">
+                    <span>健康记录</span>
+                    <ElButton type="primary" @click="router.push('/health-records')">查看全部</ElButton>
+                  </div>
+                </template>
+                <div class="health-summary">
+                  <p>这里展示您的健康记录摘要</p>
+                  <el-button type="primary" plain @click="router.push('/health-records')">查看详细健康记录</el-button>
                 </div>
-              </template>
-              <p>健康记录内容将在此显示</p>
-            </ElCard>
-          </div>
+              </ElCard>
+            </div>
 
           <!-- 系统设置面板 -->
           <div v-if="activeMenu === '3'">

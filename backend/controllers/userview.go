@@ -1,79 +1,83 @@
 package controllers
 
 import (
+	"encoding/json"
+	"net/http"
+
 	"healthcare/global"
 	"healthcare/models"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-// 查看该用户下的所有体检项目(只显示体检项目name与value)
+// 查看该用户下的所有健康记录，包含机构和套餐信息
 func GetAllItems(ctx *gin.Context) {
 	username := ctx.GetString("username")
-	// 通过username查找user表中对应的userid
 	var userID uint
 	if err := global.DB.Model(&models.User{}).Where("username = ?", username).Select("id").First(&userID).Error; err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
-	type output struct {
-		ItemName  string `json:"item_name"`
-		ItemValue string `json:"item_value"`
-	}
-
-	// 查找userhealthitem表中username对应userid的记录
-	var userHealthItems []models.UserHealthItem
-	if err := global.DB.Where("user_id = ?", userID).Find(&userHealthItems).Error; err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user health items"})
+	// 获取用户所选套餐
+	var userPackages []models.UserPackage
+	if err := global.DB.Preload("Institution").Preload("Plan").Where("user_id = ?", userID).Find(&userPackages).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user packages"})
 		return
 	}
 
-	// 去除重复的体检项目，只保留最新记录
-	uniqueItems := make(map[uint]models.UserHealthItem)
-	for _, item := range userHealthItems {
-		if existingItem, exists := uniqueItems[item.RelationHealthItemId]; !exists || item.UpdatedAt.After(existingItem.UpdatedAt) {
-			uniqueItems[item.RelationHealthItemId] = item
-		}
+	type record struct {
+		PlanID          uint   `json:"plan_id"`
+		InstitutionName string `json:"institution_name"`
+		PlanName        string `json:"plan_name"`
+		Items           string `json:"items"`
 	}
+	var records []record
 
-	// 将体检项目转换成output结构体
-	var items []output
-	for _, item := range uniqueItems {
-		var itemName string
-		if err := global.DB.Model(&models.HealthItem{}).Where("id = ?", item.RelationHealthItemId).Select("item_name").First(&itemName).Error; err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve item name"})
+	// 对每个套餐聚合健康记录
+	for _, pkg := range userPackages {
+		// 查询该用户该套餐下的所有健康项目
+		var healthItems []models.UserHealthItem
+		if err := global.DB.Where("user_id = ? AND plan_id = ?", userID, pkg.PlanID).Find(&healthItems).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve health items"})
 			return
 		}
-		items = append(items, output{
-			ItemName:  itemName,
-			ItemValue: item.ItemValue,
+
+		// 构建列表
+		var list []map[string]string
+		for _, hi := range healthItems {
+			var itemName string
+			_ = global.DB.Model(&models.HealthItem{}).Where("id = ?", hi.RelationHealthItemId).Select("item_name").First(&itemName).Error
+			list = append(list, map[string]string{"item_name": itemName, "item_value": hi.ItemValue})
+		}
+
+		bytes, err := json.Marshal(list)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal items"})
+			return
+		}
+
+		records = append(records, record{
+			PlanID:          pkg.PlanID,
+			InstitutionName: pkg.Institution.InstitutionName,
+			PlanName:        pkg.Plan.PlanName,
+			Items:           string(bytes),
 		})
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"items": items})
+	ctx.JSON(http.StatusOK, gin.H{"records": records})
 }
 
 // 查看指定套餐下的体检项目
 func GetItemsByPlanID(c *gin.Context) {
 	var input struct {
-		PlanID uint `json:"plan_id" binding:"required"`
+		PlanID uint `form:"plan_id" binding:"required"`
 	}
-
-	if err := c.ShouldBindJSON(&input); err != nil {
+	if err := c.ShouldBindQuery(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
-	// 通过plan_id查找planheathitem中对应的体检项目
-	var planItems []models.PlanHeathItem
-	if err := global.DB.Where("plan_id = ?", input.PlanID).Find(&planItems).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve plan items"})
-		return
-	}
-
-	// 根据planid，itemid查找userhealthitem表中对应的记录，并转换成output结构体
 	type output struct {
 		PlanName  string `json:"plan_name"`
 		ItemName  string `json:"item_name"`
@@ -81,22 +85,19 @@ func GetItemsByPlanID(c *gin.Context) {
 	}
 	var outplanitems []output
 
+	// 查询并返回
+	var planItems []models.PlanHeathItem
+	if err := global.DB.Where("plan_id = ?", input.PlanID).Find(&planItems).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve plan items"})
+		return
+	}
+
 	for _, item := range planItems {
-		var itemName string
-		if err := global.DB.Model(&models.HealthItem{}).Where("id = ?", item.RelationHealthItemId).Select("item_name").First(&itemName).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve item name"})
-			return
-		}
-
 		var itemValue string
-		if err := global.DB.Model(&models.UserHealthItem{}).Where("plan_id = ? AND health_item_id = ?", input.PlanID, item.RelationHealthItemId).Select("item_value").First(&itemValue).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve item value"})
-			return
-		}
-
+		_ = global.DB.Model(&models.UserHealthItem{}).Where("plan_id = ? AND health_item_id = ?", input.PlanID, item.RelationHealthItemId).Select("item_value").First(&itemValue).Error
 		outplanitems = append(outplanitems, output{
 			PlanName:  item.ThisPlan.PlanName,
-			ItemName:  itemName,
+			ItemName:  item.ThisHeathItem.ItemName,
 			ItemValue: itemValue,
 		})
 	}
