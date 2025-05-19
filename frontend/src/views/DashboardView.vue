@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElContainer, ElAside, ElMain, ElHeader, ElMenu, ElMenuItem, ElCard, ElAvatar, ElRow, ElCol, ElButton, ElDivider, ElForm, ElFormItem, ElInput, ElMessage, ElDialog, ElTable, ElTableColumn, ElBadge, ElTimeline, ElTimelineItem, ElSelect, ElOption, ElCollapse, ElCollapseItem, ElSkeleton, ElEmpty } from 'element-plus'
-import { User, List, Setting, UserFilled, HomeFilled, Tools } from '@element-plus/icons-vue'
+import { User, List, Setting, UserFilled, HomeFilled, Tools, PictureFilled } from '@element-plus/icons-vue'
 import InstitutionForm from '@/components/InstitutionForm.vue'
 import AdminReview from '@/components/AdminReview.vue'
 import axios from 'axios'
@@ -363,6 +363,11 @@ const handleCreateFamilyRequest = async () => {
             <ElMenuItem index="5">
               <el-icon><HomeFilled /></el-icon>
               <span>机构列表</span>
+            </ElMenuItem>
+            <!-- OCR 识别 菜单 -->
+            <ElMenuItem index="7" v-if="userType === 1" @click="router.push('/ocr')">
+              <el-icon><PictureFilled /></el-icon>
+              <span>OCR 识别</span>
             </ElMenuItem>
           </template>
           

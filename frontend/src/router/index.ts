@@ -47,6 +47,12 @@ const router = createRouter({
       name: 'plan-items',
       component: () => import('@/views/PlanItemsView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/ocr',
+      name: 'ocr',
+      component: () => import('@/views/OcrView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })
