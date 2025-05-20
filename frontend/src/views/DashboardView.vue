@@ -409,6 +409,10 @@ const submitOcr = async () => {
               <el-icon><HomeFilled /></el-icon>
               <span>机构信息</span>
             </ElMenuItem>
+            <ElMenuItem index="6">
+              <el-icon><List /></el-icon>
+              <span>用户套餐管理</span>
+            </ElMenuItem>
           </template>
 
           <!-- 管理员用户菜单 -->
@@ -451,10 +455,22 @@ const submitOcr = async () => {
             <span>机构管理</span>
           </ElMenuItem>
           
+          <!-- 套餐健康项目管理菜单项 -->
+          <ElMenuItem index="8" v-if="userType === 3 || userType === 2" @click="router.push('/plan-health-item-manager')">
+            <el-icon><List /></el-icon>
+            <span>套餐项目管理</span>
+          </ElMenuItem>
+          
           <!-- 添加用户体检数据 -->
           <ElMenuItem index="8" v-if="userType === 3 || userType === 2" @click="router.push('/add-user-data')">
             <el-icon><List /></el-icon>
             <span>添加用户体检数据</span>
+          </ElMenuItem>
+          
+          <!-- 用户套餐管理 -->
+          <ElMenuItem index="11" v-if="userType === 3 || userType === 2" @click="router.push('/user-packages')">
+            <el-icon><List /></el-icon>
+            <span>用户套餐管理</span>
           </ElMenuItem>
           
           <!-- 管理健康检查项目 -->
@@ -463,10 +479,10 @@ const submitOcr = async () => {
             <span>健康检查项目管理</span>
           </ElMenuItem>
           
-          <!-- 健康指标字符串管理 -->
-          <ElMenuItem index="10" v-if="userType === 3 || userType === 2" @click="router.push('/health-item-string')">
+          <!-- 检查项目存储管理 -->
+          <ElMenuItem index="10" v-if="userType === 3 || userType === 2" @click="router.push('/health-item-manager')">
             <el-icon><List /></el-icon>
-            <span>健康指标字符串管理</span>
+            <span>检查项目存储管理</span>
           </ElMenuItem>
         </ElMenu>
       </ElAside>

@@ -49,15 +49,33 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/plan-health-items/:id',
+      name: 'plan-health-items',
+      component: () => import('@/components/PlanHealthItems.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/user-health-data',
+      name: 'user-health-data',
+      component: () => import('@/views/UserHealthDataView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/health-items',
       name: 'health-items',
       component: () => import('@/views/HealthItemsView.vue'),
       meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
     },
     {
-      path: '/health-item-string',
-      name: 'health-item-string',
-      component: () => import('@/views/HealthItemStringView.vue'),
+      path: '/health-item-manager',
+      name: 'health-item-manager',
+      component: () => import('@/views/HealthItemManagerView.vue'),
+      meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
+    },
+    {
+      path: '/plan-health-item-manager',
+      name: 'plan-health-item-manager',
+      component: () => import('@/views/PlanHealthItemManagerView.vue'),
       meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
     },
     {
@@ -70,6 +88,12 @@ const router = createRouter({
       path: '/add-user-data/:customer_id/:plan_id',
       name: 'add-user-data-detail',
       component: () => import('@/components/AddUserHealthData.vue'),
+      meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
+    },
+    {
+      path: '/user-packages',
+      name: 'user-packages',
+      component: () => import('@/views/UserPackageManagerView.vue'),
       meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
     },
     // OCR function is now integrated into the dashboard

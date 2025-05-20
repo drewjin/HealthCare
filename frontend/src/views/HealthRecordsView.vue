@@ -8,12 +8,22 @@
         <template #header>
           <div class="card-header">
             <span>{{ rec.institution_name }} - {{ rec.plan_name }}</span>
-            <span class="item-count">共 {{ parseJson(rec.items).length }} 项</span>
+            <span class="status-badge" :class="rec.status === 1 ? 'completed' : 'pending'">
+              {{ rec.status === 1 ? '已完成' : '待完成' }}
+            </span>
           </div>
         </template>
+        <div class="progress-info">
+          <span class="item-count">共 {{ rec.item_count }} 项，已完成 {{ rec.completed_count }} 项</span>
+          <el-progress 
+            :percentage="calculateProgress(rec)" 
+            :status="rec.status === 1 ? 'success' : undefined"
+          />
+        </div>
         <el-table v-if="hasItems(rec)" :data="parseJson(rec.items)" stripe border>
           <el-table-column prop="item_name" label="项目名称" />
-          <el-table-column prop="item_value" label="项目值" />
+          <el-table-column prop="item_description" label="项目描述" />
+          <el-table-column prop="item_value" label="检测结果" />
         </el-table>
         <div v-else class="no-items">暂无体检项目</div>
         <div class="footer">
@@ -31,15 +41,19 @@ import axios from 'axios'
 
 interface RecordItem {
   plan_id: number
+  institution_id: number
   institution_name: string
   plan_name: string
+  status: number // 0: pending, 1: completed
   items: string | null
+  item_count: number
+  completed_count: number
 }
 
 const records = ref<RecordItem[]>([])
 const router = useRouter()
 
-const parseJson = (str: string | null): Array<{ item_name: string; item_value: string }> => {
+const parseJson = (str: string | null): Array<{ item_name: string; item_description: string; item_value: string }> => {
   if (!str) return []
   try {
     const parsed = JSON.parse(str)
@@ -52,6 +66,11 @@ const parseJson = (str: string | null): Array<{ item_name: string; item_value: s
 const hasItems = (rec: RecordItem): boolean => {
   const arr = parseJson(rec.items)
   return arr.length > 0
+}
+
+const calculateProgress = (rec: RecordItem): number => {
+  if (rec.item_count === 0) return 0
+  return Math.round((rec.completed_count / rec.item_count) * 100)
 }
 
 const goDashboard = (): void => {
@@ -88,8 +107,31 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
 }
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: white;
+}
+
+.status-badge.completed {
+  background-color: #67C23A;
+}
+
+.status-badge.pending {
+  background-color: #E6A23C;
+}
+
+.progress-info {
+  margin: 10px 0 15px 0;
+}
+
 .item-count {
-  color: #909399;
+  color: #606266;
+  font-size: 14px;
+  display: block;
+  margin-bottom: 5px;
 }
 .no-items {
   padding: 20px;

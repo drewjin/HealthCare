@@ -2,7 +2,7 @@
   <div class="health-items-container">
     <el-page-header @back="goBack" title="返回">
       <template #content>
-        <span class="page-title">管理健康检查项目</span>
+        <span class="page-title">{{ planId ? `管理套餐#${planId}的健康检查项目` : '管理健康检查项目' }}</span>
       </template>
     </el-page-header>
 
@@ -11,7 +11,10 @@
         <template #header>
           <div class="card-header">
             <span>健康检查项目列表</span>
-            <el-button type="primary" @click="refreshItems">刷新列表</el-button>
+            <div class="button-group">
+              <el-button type="success" @click="createNewItem">创建检查项目</el-button>
+              <el-button type="primary" @click="refreshItems">刷新列表</el-button>
+            </div>
           </div>
         </template>
 
@@ -23,10 +26,11 @@
               {{ formatDate(scope.row.CreatedAt) }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="200">
+          <el-table-column label="操作" width="300">
             <template #default="scope">
               <el-button size="small" @click="viewItem(scope.row)">查看详情</el-button>
               <el-button size="small" type="primary" @click="editItem(scope.row)">编辑</el-button>
+              <el-button size="small" type="success" @click="viewParsedItem(scope.row)">解析查看</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -62,6 +66,17 @@
       </div>
     </el-dialog>
 
+    <!-- 解析查看对话框 -->
+    <el-dialog v-model="parseViewVisible" title="健康项目解析视图" width="600px">
+      <div v-if="selectedItem">
+        <health-item-string-view 
+          :item-id="selectedItem.ID" 
+          :auto-fetch="true" 
+          ref="itemStringView"
+        />
+      </div>
+    </el-dialog>
+
     <!-- 编辑项目对话框 -->
     <el-dialog v-model="editDialogVisible" title="编辑健康检查项目" width="500px">
       <el-form v-if="selectedItem" :model="editForm" label-width="100px">
@@ -84,7 +99,7 @@
           <el-input v-model="selectedPlanItem.PlanName" disabled />
         </el-form-item>
         <el-form-item label="项目名称">
-          <el-input v-model="selectedItem.ItemName" disabled />
+          <el-input v-model="selectedItem.ItemName" disabled />  
         </el-form-item>
         <el-form-item label="项目描述">
           <el-input
@@ -110,6 +125,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import HealthItemStringView from './HealthItemStringView.vue'
 
 interface HealthItem {
   ID: number
@@ -137,7 +153,9 @@ const selectedPlanItem = ref<PlanInfo | null>(null)
 const itemDetailsVisible = ref(false)
 const editDialogVisible = ref(false)
 const editPlanItemDialogVisible = ref(false)
+const parseViewVisible = ref(false)
 const planId = ref<number | null>(null) // 从URL获取的套餐ID
+const itemStringView = ref<InstanceType<typeof HealthItemStringView> | null>(null)
 
 const editForm = reactive({
   ItemName: ''
@@ -155,9 +173,7 @@ const formatDate = (dateString: string) => {
   if (!dateString) return '-'
   const date = new Date(dateString)
   return date.toLocaleString()
-}
-
-// 获取所有健康检查项目
+}  // 获取所有健康检查项目
 const fetchHealthItems = async () => {
   loading.value = true
   try {
@@ -165,7 +181,20 @@ const fetchHealthItems = async () => {
     const response = await axios.get('/api/healthitems', {
       headers: { Authorization: `${token}` }
     })
-    healthItems.value = response.data.health_items
+    
+    // 处理返回的健康项目数据 - 可能在items或health_items字段中
+    const items = response.data.items || response.data.health_items || []
+    
+    // 标准化数据结构
+    healthItems.value = items.map((item: any) => ({
+      ID: item.ID || item.id,
+      ItemName: item.ItemName || item.item_name,
+      CreatedAt: item.CreatedAt || item.created_at || '',
+      UpdatedAt: item.UpdatedAt || item.updated_at || '',
+      DeletedAt: item.DeletedAt || item.deleted_at || null
+    }))
+    
+    console.log('Fetched health items:', healthItems.value)
   } catch (error) {
     console.error('Failed to fetch health items:', error)
     ElMessage.error('获取健康检查项目列表失败')
@@ -270,9 +299,26 @@ const savePlanItemChanges = async () => {
   }
 }
 
+// 查看解析后的项目
+const viewParsedItem = (item: HealthItem) => {
+  selectedItem.value = item
+  parseViewVisible.value = true
+  // 确保在下一个更新周期刷新，防止在对话框未完全打开时调用方法
+  setTimeout(() => {
+    if (itemStringView.value) {
+      itemStringView.value.refresh()
+    }
+  }, 100)
+}
+
 // 刷新列表
 const refreshItems = () => {
   fetchHealthItems()
+}
+
+// 创建新的检查项目
+const createNewItem = () => {
+  router.push('/health-item-manager')
 }
 
 onMounted(() => {
@@ -342,6 +388,11 @@ const fetchHealthItemsByPlanId = async (id: number) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
 }
 
 .empty-data {

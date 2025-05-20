@@ -20,6 +20,13 @@ func SetupRouter() *gin.Engine {
 		SetupAddUserDataRouter(routers)
 		SetupImageOcrRouter(routers)
 		SetupUserPlansRouter(routers)
+		SetupHealthItemsRouter(routers)
+		SetupHealthItemManagerRouter(routers)
+		SetupHealthItemPlanRouter(routers)
+		SetupInstitutionUserPackagesRouter(routers)
+		SetupPlanRecoveryRouter(routers)
+		SetupUserPackageStatusRouter(routers)
+		SetupUserPackageRouter(routers)
 	}
 	return routers
 }
