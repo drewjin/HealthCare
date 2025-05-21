@@ -428,12 +428,23 @@ const handleLogout = () => {
 // 查看亲友健康记录
 const viewFamilyHealth = (familyMember: any) => {
   console.log('查看亲友健康数据:', familyMember)
-  if (familyMember && familyMember.user_id) {
-    router.push(`/family-health/${familyMember.user_id}`)
+
+  if (familyMember && familyMember.rid && familyMember.user_id) {
+    const currentUserId = parseInt(uid.value)
+    const memberUserId = parseInt(familyMember.user_id)
+    console.log('当前用户ID:', currentUserId, '亲友关系主ID:', memberUserId)
+    if (currentUserId == memberUserId) {
+      console.log('当前用户ID与亲友关系的主id相同，跳转到亲友健康数据', currentUserId, familyMember.rid)
+      router.push(`/family-health/${familyMember.rid}`)
+    } else {
+      console.log('当前用户ID与亲友关系的主id不同', currentUserId, familyMember.rid)
+      router.push(`/family-health/${familyMember.user_id}`)
+    }
   } else {
     ElMessage.warning('无法获取亲友ID，请重试')
   }
 }
+
 
 const handleGoToProfile = () => {
   activeMenu.value = '1'

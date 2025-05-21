@@ -1,152 +1,247 @@
 <template>
-  <div class="family-health-records-container">
-    <el-page-header @back="goBack" title="返回">
-      <template #content>
-        <span class="page-title">{{ familyMember ? `${familyMember.name}的健康记录` : '亲友健康记录' }}</span>
-      </template>
-    </el-page-header>
+  <div class="health-view">
+    <div class="header">
+      <h2>亲友健康数据</h2>
+      <el-button type="primary" icon="ArrowLeft" @click="goBack">返回</el-button>
+    </div>
     
-    <el-card class="health-record-card" shadow="hover">
-      <div v-if="loading" class="loading-state">
-        <el-skeleton :rows="5" animated />
+    <div v-if="loading" class="loading-state">
+      <el-skeleton :rows="4" animated />
+    </div>
+    <template v-else>
+      <div v-if="familyMemberName" class="member-info">
+        <h3>{{ familyMemberName }} 的健康指标</h3>
       </div>
-      <div v-else-if="error" class="error-state">
-        <el-alert :title="error" type="error" />
-      </div>
-      <template v-else>
-        <div class="member-info">
-          <h3>{{ familyMember ? familyMember.name : '亲友' }} ({{ familyMember ? familyMember.relationship : '' }})</h3>
-          <p>用户名: {{ familyMember ? familyMember.username : '' }}</p>
-        </div>
-        
-        <el-divider />
-        
-        <div class="health-data-section">
-          <FamilyHealthView 
-            :family-member-id="memberId" 
-            :family-member-name="familyMember ? familyMember.name : '亲友'"
-          />
-        </div>
-      </template>
-    </el-card>
+      <v-chart v-if="chartOption" :option="chartOption" autoresize style="height: 400px;" />
+      <el-empty v-else description="暂无健康数据" />
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import FamilyHealthView from '@/components/FamilyHealthView.vue'
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import { use } from 'echarts/core'
+import { BarChart } from 'echarts/charts'
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent
+} from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
+
+// 注册必要的 ECharts 组件
+use([
+  BarChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+  CanvasRenderer
+])
 
 const route = useRoute()
 const router = useRouter()
-
 const loading = ref(true)
-const error = ref('')
-const memberId = ref<string | number>('')
-const familyMember = ref<{
-  id: string | number;
-  user_id: string | number;
-  username: string;
-  name: string;
-  relationship: string;
-}>()
+const chartOption = ref<any>(null)
+const chartData = ref<any[]>([])
+const familyMemberName = ref('')
+const familyMemberId = ref<string | number>('')
 
 // 返回上一页
 const goBack = () => {
-  router.push('/dashboard')
+  router.back()
 }
 
-// 获取亲友信息
-const fetchFamilyMemberInfo = async () => {
-  const id = route.params.id as string
-  
-  if (!id) {
-    error.value = '亲友ID不能为空'
-    loading.value = false
-    return
-  }
-  
-  memberId.value = id
-  
+// 获取亲友健康数据
+const fetchHealthItems = async () => {
+  loading.value = true
   try {
     const token = localStorage.getItem('jwt')
-    if (!token) {
-      error.value = '未登录或会话已过期'
-      loading.value = false
-      return
+    const id = route.params.id as string
+    familyMemberId.value = id
+    
+    // 先获取亲友的姓名信息
+    try {
+      const userResponse = await axios.get(`/api/users/${id}/profile`, {
+        headers: { Authorization: `${token}` }
+      })
+      if (userResponse.data && userResponse.data.data) {
+        familyMemberName.value = userResponse.data.data.name || '亲友'
+      }
+    } catch (e) {
+      console.error('获取用户信息失败:', e)
+      familyMemberName.value = '亲友'
     }
     
-    const userId = localStorage.getItem('uid')
-    
-    // 获取所有已确认的家庭关系
-    const response = await axios.get(`/api/family/confirmed/${userId}`, {
-      headers: { Authorization: token }
+    console.log('Fetching health items for family member ID:', id)
+    const response = await axios.get(`/api/healthitems/byid/${id}`, {
+      headers: { Authorization: `${token}` }
     })
-    
-    // 查找当前查看的亲友信息
-    const member = response.data.find((member: any) => member.user_id.toString() === id)
-    
-    if (member) {
-      familyMember.value = {
-        id: member.id,
-        user_id: member.user_id,
-        username: member.username,
-        name: member.name,
-        relationship: member.relationship
+
+    if (response.data.items && response.data.items.length > 0) {
+      const allMetricsMap: Record<string, number> = {}
+
+      response.data.items.forEach((item: any) => {
+        const healthInfo = item.user_health_info || ''
+        if (typeof healthInfo !== 'string') {
+          console.warn('Unexpected healthInfo type:', typeof healthInfo, healthInfo)
+          return
+        }
+        
+        const metrics = healthInfo.split(/[;,]/)
+          .filter(Boolean)
+          .map((str: string) => {
+            const match = str.match(/([^:：]+)[：:]?(\d+)/)
+            if (match) {
+              return { name: match[1].trim(), value: Number(match[2]) }
+            }
+            return null
+          })
+          .filter(Boolean) as { name: string, value: number }[]
+
+        metrics.forEach(({ name, value }) => {
+          if (allMetricsMap[name]) {
+            allMetricsMap[name] += value
+          } else {
+            allMetricsMap[name] = value
+          }
+        })
+      })
+
+      const averageHealthData: Record<string, number> = {
+        '身高': 170,
+        '体重': 65,
+        '血压': 120,
+        '血糖': 5.2,
+        '心率': 75,
+        '体温': 36.5,
+        '血氧': 98,
+        '肺活量': 4000,
+        '胆固醇': 4.5,
+        '尿酸': 360
+      }
+
+      const aggregatedMetrics = Object.entries(allMetricsMap).map(([name, value]) => ({
+        name,
+        userValue: value,
+        averageValue: averageHealthData[name] || Math.round(value * (0.8 + Math.random() * 0.4))
+      }))
+
+      chartData.value = aggregatedMetrics
+
+      const categories = aggregatedMetrics.map(item => item.name)
+      const userValues = aggregatedMetrics.map(item => item.userValue)
+      const averageValues = aggregatedMetrics.map(item => item.averageValue)
+
+      const unitMap: Record<string, string> = {
+        '身高': 'cm',
+        '体重': 'kg',
+        '血压': 'mmHg',
+        '血糖': 'mmol/L',
+        '心率': '次/分',
+        '体温': '°C',
+        '血氧': '%',
+        '肺活量': 'mL',
+        '胆固醇': 'mmol/L',
+        '尿酸': 'μmol/L'
+      }
+
+      chartOption.value = {
+        title: {
+          text: '健康指标对比图',
+          left: 'center'
+        },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          formatter: function(params: any[]) {
+            const name = params[0].name
+            const unit = unitMap[name] || ''
+            let result = `<div style="font-weight:bold;">${name}</div>`
+            params.forEach((param: any) => {
+              result += `<div>${param.marker} ${param.seriesName}: ${param.value}${unit}</div>`
+            })
+            return result
+          }
+        },
+        legend: {
+          data: ['您的数值', '平均水平'],
+          top: 'bottom'
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '10%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLabel: { rotate: 30 }
+        },
+        yAxis: {
+          type: 'value',
+          name: '数值'
+        },
+        series: [
+          {
+            name: '您的数值',
+            type: 'bar',
+            data: userValues,
+            itemStyle: { color: '#67c23a' }
+          },
+          {
+            name: '平均水平',
+            type: 'bar',
+            data: averageValues,
+            itemStyle: { color: '#409eff' }
+          }
+        ]
       }
     } else {
-      error.value = '未找到该亲友信息'
+      chartData.value = []
+      chartOption.value = null
     }
-  } catch (err) {
-    console.error('获取亲友信息失败:', err)
-    error.value = '获取亲友信息失败，请重试'
+  } catch (error) {
+    console.error('Failed to fetch health items:', error)
+    ElMessage.error('获取健康数据失败')
+    chartData.value = []
+    chartOption.value = null
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  fetchFamilyMemberInfo()
-})
+onMounted(fetchHealthItems)
+watch(() => route.params.id, fetchHealthItems)
 </script>
 
 <style scoped>
-.family-health-records-container {
-  max-width: 900px;
-  margin: 0 auto;
+.health-view {
+  margin-top: 20px;
   padding: 20px;
 }
 
-.page-title {
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.health-record-card {
-  margin-top: 20px;
-}
-
-.loading-state, .error-state {
-  padding: 30px;
-  text-align: center;
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
 
 .member-info {
-  margin-bottom: 15px;
-}
-
-.member-info h3 {
-  color: #303133;
-  margin-bottom: 10px;
-}
-
-.member-info p {
+  margin-bottom: 20px;
   color: #606266;
-  margin: 5px 0;
 }
 
-.health-data-section {
-  margin-top: 20px;
+.loading-state {
+  padding: 40px 0;
+  display: flex;
+  justify-content: center;
 }
 </style>
