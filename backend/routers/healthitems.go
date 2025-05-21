@@ -1,8 +1,8 @@
 package routers
 
 import (
-	"healthcare/controllers"
-	"healthcare/middlewares"
+	"HealthCare/backend/controllers"
+	"HealthCare/backend/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,13 +14,17 @@ func SetupHealthItemsRouter(r *gin.Engine) {
 	{
 		// 获取所有健康检查项目
 		healthItems.GET("", controllers.GetAllHealthItems)
-		
+		//oy
+		healthItems.GET("/all", controllers.GetAllHealthItemsList)
+
+		healthItems.GET("/byid/:id", controllers.GetAllHealthItemsByID)
+
 		// 获取指定ID的健康检查项目
 		healthItems.GET("/:id", controllers.GetHealthItemByID)
-		
+
 		// 更新健康检查项目
 		healthItems.PATCH("/:id", controllers.UpdateHealthItem)
-		
+
 		// 更新套餐中项目的描述
 		healthItems.PATCH("/plan-item", controllers.UpdatePlanItemDescription)
 	}

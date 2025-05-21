@@ -1,8 +1,8 @@
 package middlewares
 
 import (
-	"healthcare/global"
-	"healthcare/models"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"net/http"
 
 	"slices"

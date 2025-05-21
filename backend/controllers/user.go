@@ -1,11 +1,10 @@
 package controllers
 
 import (
+	"HealthCare/backend/controllers/utils"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"errors"
-	"fmt"
-	"healthcare/controllers/utils"
-	"healthcare/global"
-	"healthcare/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -54,6 +53,197 @@ func GetUserProfileByID(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"data": profile,
+	})
+}
+
+// 新建个人健康指标 oy
+func CreateHealthItem(ctx *gin.Context) {
+	var input struct {
+		UserID         uint   `json:"user_id" binding:"required"`
+		UserHealthInfo string `json:"user_health_info" binding:"required"`
+	}
+
+	// 绑定输入参数
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的请求数据: " + err.Error(),
+		})
+		return
+	}
+
+	// 开启事务
+	tx := global.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "服务器内部错误",
+			})
+		}
+	}()
+
+	// 执行插入操作
+	result := tx.Exec(`INSERT INTO health_items (user_id, user_health_info) VALUES (?, ?)`,
+		input.UserID, input.UserHealthInfo)
+
+	if result.Error != nil {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "新建个人健康档案指标失败: " + result.Error.Error(),
+		})
+		return
+	}
+
+	// 检查是否成功插入
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "未能创建健康档案指标",
+		})
+		return
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "提交事务失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "新建个人健康档案指标成功",
+		"data": gin.H{
+			"user_id":          input.UserID,
+			"user_health_info": input.UserHealthInfo,
+		},
+	})
+}
+
+// 删除个人健康指标 oy
+func DelHealthItem(ctx *gin.Context) {
+	ID := ctx.Param("id")
+
+	// 参数验证
+	if ID == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "用户ID不能为空",
+		})
+		return
+	}
+	id, err := utils.UnmarshalUint(ID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// 开启事务
+	tx := global.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "服务器内部错误",
+			})
+		}
+	}()
+
+	// 执行删除操作
+	result := tx.Exec(`DELETE FROM health_items WHERE id = ?`, id)
+
+	if result.Error != nil {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "删除健康档案指标失败: " + result.Error.Error(),
+		})
+		return
+	}
+
+	// 检查是否实际删除了记录
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "未找到对应的健康档案记录",
+		})
+		return
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "提交事务失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "删除个人健康档案指标成功",
+		"data": gin.H{
+			"user_id": id,
+		},
+	})
+}
+
+// 修改个人健康指标 oy
+func UpdateUserHealthItem(ctx *gin.Context) {
+	var input struct {
+		ID             uint   `json:"id" binding:"required"`
+		UserHealthInfo string `json:"user_health_info" binding:"required"`
+	}
+
+	// 绑定输入参数
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的请求数据: " + err.Error(),
+		})
+		return
+	}
+
+	// 开启事务
+	tx := global.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "服务器内部错误",
+			})
+		}
+	}()
+
+	// 执行更新操作
+	result := tx.Exec(`UPDATE health_items SET user_health_info = ? WHERE id = ?`,
+		input.UserHealthInfo, input.ID)
+
+	if result.Error != nil {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "修改健康档案指标失败: " + result.Error.Error(),
+		})
+		return
+	}
+
+	// 检查是否实际更新了记录
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "未找到对应的健康档案记录",
+		})
+		return
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "提交事务失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "修改个人健康档案指标成功",
+		"data": gin.H{
+			"id":               input.ID,
+			"user_health_info": input.UserHealthInfo,
+		},
 	})
 }
 
@@ -166,28 +356,14 @@ func GetInstitutionByUserId(ctx *gin.Context) {
 // 用户更新个人信息
 func UpdateUserProfile(ctx *gin.Context) {
 	userID := ctx.Param("id")
-	var user models.User
-	if err := global.DB.Where("id = ?", userID).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.JSON(http.StatusNotFound, gin.H{
-				"error": "User not found",
-			})
-			return
-		}
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
 	var input struct {
-		Username *string `json:"username"`
-		Name     *string `json:"name"`
-		Gender   *string `json:"gender"`
-		Birthday *string `json:"birthday"`
-		Phone    *string `json:"phone"`
-		Email    *string `json:"email"`
-		Address  *string `json:"address"`
+		Username string `json:"username"`
+		Name     string `json:"name"`
+		Gender   string `json:"gender"`
+		Birthday string `json:"birthday"`
+		Phone    string `json:"phone"`
+		Email    string `json:"email"`
+		Address  string `json:"address"`
 	}
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -195,50 +371,33 @@ func UpdateUserProfile(ctx *gin.Context) {
 		})
 		return
 	}
+	// 开启事务
+	tx := global.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "服务器内部错误",
+			})
+		}
+	}()
 
-	updates := make(map[string]interface{})
-	if input.Username != nil && *input.Username != "" {
-		updates["username"] = *input.Username
-	}
-	if input.Name != nil && *input.Name != "" {
-		updates["name"] = *input.Name
-	}
-	if input.Gender != nil && *input.Gender != "" {
-		updates["gender"] = *input.Gender
-	}
-	if input.Birthday != nil && *input.Birthday != "" {
-		updates["birthday"] = *input.Birthday
-	}
-	if input.Phone != nil && *input.Phone != "" {
-		updates["phone"] = *input.Phone
-	}
-	if input.Email != nil && *input.Email != "" {
-		updates["email"] = *input.Email
-	}
-	if input.Address != nil && *input.Address != "" {
-		updates["address"] = *input.Address
-	}
+	result := tx.Exec(`UPDATE users SET username = ?,name=?,gender=?,birthday=?,phone=?,email=?,address=?  WHERE id = ?`,
+		input.Username, input.Name, input.Gender, input.Birthday, input.Phone, input.Email, input.Address, userID)
 
-	fmt.Println(updates)
-
-	switch len(updates) {
-	case 0:
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "No fields to update",
+	if result.Error != nil {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "修改失败: " + result.Error.Error(),
 		})
 		return
-	default:
-		for key, value := range updates {
-			result := global.DB.Model(&user).Update(key, value)
-			if result.Error != nil {
-				ctx.JSON(http.StatusBadRequest, gin.H{
-					"error": result.Error.Error(),
-					"field": key,
-					"value": value,
-				})
-				return
-			}
-		}
+	}
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "提交事务失败: " + err.Error(),
+		})
+		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{

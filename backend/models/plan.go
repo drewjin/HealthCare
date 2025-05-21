@@ -18,7 +18,9 @@ type Plan struct {
 // 体检套餐指标表，存储具体套餐的指标信息，item_id，item_name(主键),只保存信息，便于添加新的指标内容
 type HealthItem struct {
 	gorm.Model
-	ItemName string `gorm:"type:varchar(512);not null;index;column:item_name"`
+	ItemName       string `gorm:"type:varchar(512);not null;index;column:item_name"`
+	UserID         uint   `gorm:"index;column:user_id"`
+	UserHealthInfo string `gorm:"type:varchar(512);index;column:user_health_info"`
 }
 
 // plan-item对应表, 展示套餐信息

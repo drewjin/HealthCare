@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"healthcare/global"
-	"healthcare/models"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"net/http"
 	"strconv"
 
@@ -14,7 +14,7 @@ func UpdateUserPackageStatus(c *gin.Context) {
 	// 获取路径参数
 	userID := c.Param("user_id")
 	planID := c.Param("plan_id")
-	
+
 	// 解析用户ID和套餐ID
 	uid, err := strconv.ParseUint(userID, 10, 32)
 	if err != nil {

@@ -1,11 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElContainer, ElAside, ElMain, ElHeader, ElMenu, ElMenuItem, ElCard, ElAvatar, ElRow, ElCol, ElButton, ElDivider, ElForm, ElFormItem, ElInput, ElMessage, ElDialog, ElTable, ElTableColumn, ElBadge, ElTimeline, ElTimelineItem, ElSelect, ElOption, ElCollapse, ElCollapseItem, ElSkeleton, ElEmpty, ElUpload } from 'element-plus'
 import { User, List, Setting, UserFilled, HomeFilled, Tools, PictureFilled } from '@element-plus/icons-vue'
 import InstitutionForm from '@/components/InstitutionForm.vue'
 import AdminReview from '@/components/AdminReview.vue'
 import axios from 'axios'
+import { use } from 'echarts/core';
+import { PieChart } from 'echarts/charts';
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent
+} from 'echarts/components';
+import { CanvasRenderer } from 'echarts/renderers';
+import VChart from 'vue-echarts';
 
 const router = useRouter()
 const uid = ref(localStorage.getItem('uid'))
@@ -21,6 +30,7 @@ const userInfo = ref({
   address: '',
   user_type: 1
 })
+const updateInfo = ref(false)
 const showResetPwdDialog = ref(false)
 const resetPwdForm = ref({
   prevPassword: '',
@@ -43,6 +53,7 @@ const confirmedFamilyMembers = ref<Array<{
 
 const showCreateFamilyDialog = ref(false)
 const familyRequestForm = ref({
+  id: '',
   relative_username: '',
   relationship: ''
 })
@@ -67,6 +78,11 @@ const getUserTypeLabel = (type: number) => {
       return '未知类型'
   }
 }
+
+const genderOptions = [
+  { value: 'M', label: '男' },
+  { value: 'F', label: '女' }
+]
 
 interface InstitutionItem {
   ID: number
@@ -183,22 +199,87 @@ onMounted(async () => {
         familyRequests.value = data || []
         hasPendingRequests.value = familyRequests.value && familyRequests.value.length > 0
       }
+      await fetchFamilyItems()
+      await fetchHealthItems()
 
-      // 获取已确认的家庭关系
-      const confirmedResponse = await fetch(`http://localhost:3000/api/family/confirmed/${uid.value}`, {
-        method: 'GET',
-        headers: { Authorization: token },
-      })
-      if (confirmedResponse.ok) {
-        const data = await confirmedResponse.json()
-        confirmedFamilyMembers.value = data || []
-      }
     }
   } catch (error) {
     console.error(error)
     router.push('/login')
   }
 })
+
+const fetchFamilyItems = async () => {
+  try {
+    const token = localStorage.getItem('jwt')
+    const response = await axios.get(`/api/family/confirmed/${uid.value}`, {
+      headers: { Authorization: `${token}` }
+    })
+    confirmedFamilyMembers.value = response.data || []
+    
+    console.log('Fetched health items:', confirmedFamilyMembers.value)
+  } catch (error) {
+    console.error('Failed to fetch health items:', error)
+    ElMessage.error('获取家庭列表失败')
+  }
+}
+
+const fetchHealthItems = async () => {
+  try {
+    const token = localStorage.getItem('jwt')
+    const response = await axios.get(`/api/healthitems/byid/${uid.value}`, {
+      headers: { Authorization: `${token}` }
+    })
+    chartData.value = response.data.items[0].user_health_info
+      .split(';')
+      .filter(Boolean)
+      .map(item => {
+        const match = item.match(/([^:：]+)[：:]?(\d+)/);
+        if (match) {
+          return {
+            name: match[1],
+            value: Number(match[2])
+          };
+        }
+      })
+      .filter(Boolean);
+    chartOption.value = {
+      title: {
+        text: '指标图',
+        left: 'center'
+      },
+      series: [
+        {
+          type: 'pie',
+          radius: ['40%', '70%'], // 环形饼图
+          avoidLabelOverlap: false,
+          itemStyle: {
+            borderRadius: 10,
+            borderColor: '#fff',
+            borderWidth: 2
+          },
+          label: {
+            show: false,
+            position: 'center'
+          },
+          emphasis: {
+            label: {
+              show: true,
+              fontSize: '18',
+              fontWeight: 'bold'
+            }
+          },
+          labelLine: {
+            show: false
+          },
+          data: chartData.value
+        }
+      ]
+    }
+  } catch (error) {
+    console.error('Failed to fetch health items:', error)
+  }
+}
 
 const handleLogout = () => {
   localStorage.removeItem('jwt')
@@ -241,6 +322,31 @@ const handleResetPwd = async () => {
   }
 }
 
+const handleUpdateInfo = async () => {
+  try {
+    const token = localStorage.getItem('jwt')
+    await axios.post(`/api/users/${uid.value}/profile`, {
+      username: userInfo.value.username,
+      name: userInfo.value.name,
+      gender: userInfo.value.gender,
+      birthday: userInfo.value.birthday,
+      phone: userInfo.value.phone,
+      email: userInfo.value.email,
+      address: userInfo.value.address,
+    }, {
+      headers: { 
+        Authorization: `${token}`,
+        'Content-Type': 'application/json; charset=utf-8'
+      }
+    })
+    ElMessage.success('基本信息修改成功')
+  } catch (error) {
+    console.error('Failed to fetch health items:', error)
+    ElMessage.error('基本信息修改失败')
+  }
+  updateInfo.value = false
+}
+
 const handleFamilyRequest = async (requestId: number, accept: boolean) => {
   try {
     const token = localStorage.getItem('jwt')
@@ -264,39 +370,40 @@ const handleFamilyRequest = async (requestId: number, accept: boolean) => {
     familyRequests.value = familyRequests.value.filter(req => req.id !== requestId)
     hasPendingRequests.value = familyRequests.value.length > 0
     ElMessage.success(accept ? '已接受请求' : '已拒绝请求')
+    fetchFamilyItems()
   } catch (error) {
     console.error(error)
     ElMessage.error(error instanceof Error ? error.message : '处理请求失败')
   }
 }
 
-const handleCreateFamilyRequest = async () => {
-  try {
-    const token = localStorage.getItem('jwt')
-    if (!token) throw new Error('未登录')
+// const handleCreateFamilyRequest = async () => {
+//   try {
+//     const token = localStorage.getItem('jwt')
+//     if (!token) throw new Error('未登录')
 
-    const response = await fetch(`http://localhost:3000/api/family/request/${uid.value}`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: token 
-      },
-      body: JSON.stringify(familyRequestForm.value)
-    })
+//     const response = await fetch(`http://localhost:3000/api/family/request/${uid.value}`, {
+//       method: 'POST',
+//       headers: { 
+//         'Content-Type': 'application/json',
+//         Authorization: token 
+//       },
+//       body: JSON.stringify(familyRequestForm.value)
+//     })
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error)
-    }
+//     if (!response.ok) {
+//       const errorData = await response.json()
+//       throw new Error(errorData.error)
+//     }
 
-    ElMessage.success('请求已发送')
-    showCreateFamilyDialog.value = false
-    familyRequestForm.value = { relative_username: '', relationship: '' }
-  } catch (error) {
-    console.error(error)
-    ElMessage.error(error instanceof Error ? error.message : '发送请求失败')
-  }
-}
+//     ElMessage.success('请求已发送')
+//     showCreateFamilyDialog.value = false
+//     familyRequestForm.value = { relative_username: '', relationship: '' }
+//   } catch (error) {
+//     console.error(error)
+//     ElMessage.error(error instanceof Error ? error.message : '发送请求失败')
+//   }
+// }
 
 // OCR related variables and functions
 const selectedFile = ref<File | null>(null)
@@ -371,6 +478,98 @@ const submitOcr = async () => {
     console.error('OCR 识别失败', e)
   }
 }
+
+const dialogTitle = ref('')
+// 编辑
+const editItem = (item) => {
+  if(item) {
+    dialogTitle.value = '编辑家庭关系请求'
+    familyRequestForm.value.id = item.id
+    familyRequestForm.value.relative_username = item.username
+    familyRequestForm.value.relationship = item.relationship
+  } else {
+    dialogTitle.value = '创建家庭关系请求'
+    familyRequestForm.value.id = ''
+    familyRequestForm.value.relative_username = ''
+    familyRequestForm.value.relationship = ''
+  }
+  showCreateFamilyDialog.value = true
+}
+// 保存
+const handleCreateFamilyRequest = async () => {
+  try {
+    const token = localStorage.getItem('jwt')
+    if(familyRequestForm.value.id) {
+      await axios.post(`/api/family/update_family_name`, {
+        id: familyRequestForm.value.id,
+        relationship: familyRequestForm.value.relationship
+      }, {
+        headers: { 
+          Authorization: `${token}`,
+          'Content-Type': 'application/json; charset=utf-8'
+        }
+      })
+      ElMessage.success('家庭关系修改成功')
+    } else {
+      await axios.post(`/api/family/request/${uid.value}`, {
+        relative_username: familyRequestForm.value.relative_username,
+        relationship: familyRequestForm.value.relationship
+      }, {
+        headers: { 
+          Authorization: `${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      ElMessage.success('家庭关系新增成功')
+    }
+
+    showCreateFamilyDialog.value = false
+
+    // 更新列表
+    await fetchFamilyItems()
+  } catch (error: any) {
+    console.error('Failed to update health item:', error)
+    if (error.response && error.response.data && error.response.data.error) {
+      ElMessage.error(error.response.data.error)
+    } else {
+      ElMessage.error('家庭关系修改失败')
+    }
+  }
+}
+// 删除
+const deleteItem = async (key: string) => {
+  try {
+    const token = localStorage.getItem('jwt')
+    await axios.get(`/api/family/del_confirmed/${key}`, {
+      headers: { Authorization: token }
+    })
+    ElMessage.success('家庭关系删除成功')
+    // 更新列表
+    await fetchFamilyItems()
+  } catch (error: any) {
+    console.error('Failed to update health item:', error)
+    if (error.response && error.response.data && error.response.data.error) {
+      ElMessage.error(error.response.data.error)
+    } else {
+      ElMessage.error('档案删除失败')
+    }
+  }
+}
+
+
+// 按需注册必要的组件
+use([
+  CanvasRenderer,
+  PieChart,
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent
+]);
+
+// 图表配置项
+const chartOption = ref();
+const chartData = ref([])
+
 </script>
 
 <template>
@@ -484,6 +683,18 @@ const submitOcr = async () => {
             <el-icon><List /></el-icon>
             <span>检查项目存储管理</span>
           </ElMenuItem>
+
+          <!-- 档案管理 -->
+          <ElMenuItem index="11" v-if="userType === 3 || userType === 2" @click="router.push('/archive-manager')">
+            <el-icon><List /></el-icon>
+            <span>档案管理</span>
+          </ElMenuItem>
+
+          <!-- 评论管理 -->
+          <ElMenuItem index="11" v-if="userType === 3 || userType === 2" @click="router.push('/comment-manager')">
+            <el-icon><List /></el-icon>
+            <span>评论管理</span>
+          </ElMenuItem>
         </ElMenu>
       </ElAside>
       
@@ -511,38 +722,51 @@ const submitOcr = async () => {
                 <div class="user-info-list">
                   <div class="info-item">
                     <span class="label">用户名：</span>
-                    <span>{{ userInfo.username }}</span>
+                    <el-input v-if="updateInfo" v-model="userInfo.username" placeholder="请输入" />
+                    <span v-else>{{ userInfo.username }}</span>
                   </div>
                   <ElDivider />
                   <div class="info-item">
                     <span class="label">邮箱：</span>
-                    <span>{{ userInfo.email }}</span>
+                    <el-input v-if="updateInfo" v-model="userInfo.email" placeholder="请输入" />
+                    <span v-else>{{ userInfo.email }}</span>
                   </div>
                   <ElDivider />
                   <div class="info-item">
                     <span class="label">电话：</span>
-                    <span>{{ userInfo.phone }}</span>
+                    <el-input v-if="updateInfo" v-model="userInfo.phone" placeholder="请输入" />
+                    <span v-else>{{ userInfo.phone }}</span>
                   </div>
                   <ElDivider />
                   <div class="info-item">
                     <span class="label">性别：</span>
-                    <span>{{ userInfo.gender === 'M' ? '男' : '女' }}</span>
+                    <el-select v-if="updateInfo" v-model="userInfo.gender" placeholder="请选择">
+                      <el-option v-for="item in genderOptions" :key="item.value" :label="item.label" :value="item.value" />
+                    </el-select>
+                    <span v-else>{{ userInfo.gender === 'M' ? '男' : '女' }}</span>
                   </div>
                   <ElDivider />
                   <div class="info-item">
                     <span class="label">生日：</span>
-                    <span>{{ userInfo.birthday }}</span>
+                    <el-input v-if="updateInfo" v-model="userInfo.birthday" placeholder="请输入" />
+                    <span v-else>{{ userInfo.birthday }}</span>
                   </div>
                   <ElDivider />
                   <div class="info-item">
                     <span class="label">地址：</span>
-                    <span>{{ userInfo.address }}</span>
+                    <el-input v-if="updateInfo" v-model="userInfo.address" placeholder="请输入" />
+                    <span v-else>{{ userInfo.address }}</span>
                   </div>
                   <ElDivider />
                   <div class="info-item">
                     <span class="label">用户类型：</span>
                     <span>{{ getUserTypeLabel(userInfo.user_type) }}</span>
                   </div>
+                </div>
+                <ElButton v-if="!updateInfo" type="primary" @click="updateInfo = true">修改</ElButton>
+                <div v-else>
+                  <ElButton @click="updateInfo = false">取消</ElButton>
+                  <ElButton type="primary" @click="handleUpdateInfo">保存</ElButton>
                 </div>
               </ElCard>
             </ElCol>
@@ -592,23 +816,26 @@ const submitOcr = async () => {
         <!-- 管理员面板 -->
         <div v-if="activeMenu === '2' && userType === 2">
           <AdminReview />
-        </div>          <!-- 普通用户其他面板 -->
-          <template v-if="userType === 1">
-            <!-- 健康记录面板 -->
-            <div v-if="activeMenu === '2'">
-              <ElCard shadow="hover">
-                <template #header>
-                  <div class="card-header">
-                    <span>健康记录</span>
-                    <ElButton type="primary" @click="router.push('/health-records')">查看全部</ElButton>
-                  </div>
-                </template>
-                <div class="health-summary">
-                  <p>这里展示您的健康记录摘要</p>
-                  <el-button type="primary" plain @click="router.push('/health-records')">查看详细健康记录</el-button>
+        </div>          
+        <!-- 普通用户其他面板 -->
+        <template v-if="userType === 1">
+          <!-- 健康记录面板 -->
+          <div v-if="activeMenu === '2'">
+            <ElCard shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <span>健康记录</span>
+                  <ElButton type="primary" @click="router.push('/health-records')">查看全部</ElButton>
                 </div>
-              </ElCard>
-            </div>
+              </template>
+              <div class="health-summary">
+                <p>这里展示您的健康记录摘要</p>
+                 <v-chart class="chart-container" :option="chartOption" autoresize />
+                 <div v-for="(item, index) in chartData" :key="index">{{ item.name }}: {{ item.value }}</div>
+                <el-button type="primary" plain @click="router.push('/health-records')" style="margin-top: 20px;">查看详细健康记录</el-button>
+              </div>
+            </ElCard>
+          </div>
 
           <!-- 系统设置面板 -->
           <div v-if="activeMenu === '3'">
@@ -630,7 +857,7 @@ const submitOcr = async () => {
                   <template #header>
                     <div class="card-header">
                       <span>已有家庭关系</span>
-                      <ElButton type="primary" @click="showCreateFamilyDialog = true">添加成员</ElButton>
+                      <ElButton type="primary" @click="editItem()">添加成员</ElButton>
                     </div>
                   </template>
                   <div v-if="confirmedFamilyMembers.length > 0">
@@ -638,6 +865,12 @@ const submitOcr = async () => {
                       <ElTableColumn prop="username" label="用户名" />
                       <ElTableColumn prop="name" label="姓名" />
                       <ElTableColumn prop="relationship" label="关系" />
+                      <ElTableColumn label="操作" width="160">
+                        <template #default="scope">
+                          <el-button size="small" type="primary" @click="editItem(scope.row)">编辑</el-button>
+                          <el-button size="small" type="danger" @click="deleteItem(scope.row.id)">删除</el-button>
+                        </template>
+                      </ElTableColumn>
                     </ElTable>
                   </div>
                   <div v-else>
@@ -685,7 +918,7 @@ const submitOcr = async () => {
             <!-- 创建家庭关系请求对话框 -->
             <ElDialog
               v-model="showCreateFamilyDialog"
-              title="创建家庭关系请求"
+              :title="dialogTitle"
               width="30%"
               :close-on-click-modal="false"
             >
@@ -864,7 +1097,7 @@ const submitOcr = async () => {
 
 .label {
   font-weight: bold;
-  width: 80px;
+  width: 120px;
   color: #606266;
 }
 
@@ -913,5 +1146,10 @@ const submitOcr = async () => {
 .preview img {
   max-width: 200px;
   margin-top: 10px;
+}
+.chart-container {
+  width: 400px;
+  height: 400px;
+  margin: auto;
 }
 </style>

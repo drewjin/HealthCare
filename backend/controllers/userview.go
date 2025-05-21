@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"healthcare/global"
-	"healthcare/models"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -66,18 +66,18 @@ func GetAllItems(ctx *gin.Context) {
 		// 构建列表
 		var list []map[string]string
 		completedCount := 0
-		
+
 		for _, phi := range planHealthItems {
 			itemValue, exists := userItemValues[phi.RelationHealthItemId]
 			if exists && itemValue != "" {
 				completedCount++
 			}
-			
+
 			list = append(list, map[string]string{
-				"item_id": fmt.Sprintf("%d", phi.RelationHealthItemId),
-				"item_name": phi.ThisHeathItem.ItemName,
+				"item_id":          fmt.Sprintf("%d", phi.RelationHealthItemId),
+				"item_name":        phi.ThisHeathItem.ItemName,
 				"item_description": phi.ItemDescription,
-				"item_value": itemValue,
+				"item_value":       itemValue,
 			})
 		}
 
@@ -147,13 +147,13 @@ func GetItemsByPlanID(c *gin.Context) {
 	}
 
 	type output struct {
-		PlanItemID     uint   `json:"plan_item_id"`  // PlanHeathItem的ID
-		PlanID         uint   `json:"plan_id"`
-		PlanName       string `json:"plan_name"`
-		ItemID         uint   `json:"item_id"`       // HealthItem的ID
-		ItemName       string `json:"item_name"`
+		PlanItemID      uint   `json:"plan_item_id"` // PlanHeathItem的ID
+		PlanID          uint   `json:"plan_id"`
+		PlanName        string `json:"plan_name"`
+		ItemID          uint   `json:"item_id"` // HealthItem的ID
+		ItemName        string `json:"item_name"`
 		ItemDescription string `json:"item_description"`
-		ItemValue      string `json:"item_value"`
+		ItemValue       string `json:"item_value"`
 	}
 	var outplanitems []output
 
@@ -176,10 +176,10 @@ func GetItemsByPlanID(c *gin.Context) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Plan not found and no items associated"})
 				return
 			}
-			
+
 			// 创建一个基本的套餐对象供后续使用
 			plan = models.Plan{
-				Model: gorm.Model{ID: input.PlanID},
+				Model:    gorm.Model{ID: input.PlanID},
 				PlanName: fmt.Sprintf("Plan #%d (Not Found)", input.PlanID),
 			}
 		} else {
@@ -207,11 +207,11 @@ func GetItemsByPlanID(c *gin.Context) {
 	// 如果没有找到任何项目，返回空列表
 	if len(planItems) == 0 {
 		c.JSON(http.StatusOK, gin.H{
-			"plan_id": input.PlanID,
-			"plan_name": plan.PlanName,
+			"plan_id":     input.PlanID,
+			"plan_name":   plan.PlanName,
 			"customer_id": customerID,
-			"plan_items": []output{},
-			"message": "No health items found for this plan",
+			"plan_items":  []output{},
+			"message":     "No health items found for this plan",
 		})
 		return
 	}
@@ -220,7 +220,7 @@ func GetItemsByPlanID(c *gin.Context) {
 	for _, item := range planItems {
 		var itemValue string
 		_ = global.DB.Model(&models.UserHealthItem{}).
-			Where("user_id = ? AND plan_id = ? AND health_item_id = ?", 
+			Where("user_id = ? AND plan_id = ? AND health_item_id = ?",
 				customerID, input.PlanID, item.RelationHealthItemId).
 			Select("item_value").
 			First(&itemValue).Error
@@ -243,9 +243,9 @@ func GetItemsByPlanID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"plan_id": input.PlanID,
-		"plan_name": plan.PlanName,
+		"plan_id":     input.PlanID,
+		"plan_name":   plan.PlanName,
 		"customer_id": customerID,
-		"plan_items": outplanitems,
+		"plan_items":  outplanitems,
 	})
 }

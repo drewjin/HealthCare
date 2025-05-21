@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"healthcare/global"
+	"HealthCare/backend/global"
 )
 
 func CheckExists(model interface{}, field string, value interface{}) (bool, error) {

@@ -1,10 +1,10 @@
 package controllers
 
 import (
+	"HealthCare/backend/controllers/utils"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"fmt"
-	"healthcare/controllers/utils"
-	"healthcare/global"
-	"healthcare/models"
 	"net/http"
 	"strconv"
 	"strings"
@@ -134,10 +134,10 @@ func UpdateHealthItemValues(ctx *gin.Context) {
 // 返回：解析后的键值对
 func GetHealthItemValues(ctx *gin.Context) {
 	itemID := ctx.Param("id")
-	
+
 	// 调试输出
 	fmt.Printf("GetHealthItemValues - 接收到的项目ID参数: '%s'\n", itemID)
-	
+
 	// 检查ID是否是有效的数字
 	if itemID == "undefined" || itemID == "" {
 		fmt.Println("GetHealthItemValues - 无效的项目ID (undefined 或空)")
@@ -203,6 +203,6 @@ func SaveHealthItemTemplate(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "健康项目保存成功",
-		"item": healthItem,
+		"item":    healthItem,
 	})
 }

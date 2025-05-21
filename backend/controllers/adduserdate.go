@@ -1,9 +1,9 @@
 package controllers
 
 import (
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"fmt"
-	"healthcare/global"
-	"healthcare/models"
 	"net/http"
 	"strconv"
 
@@ -17,7 +17,7 @@ func AddUserDateByPlanID(ctx *gin.Context) {
 	planID := ctx.Param("plan_id")
 
 	type inputitem struct {
-		ItemID    int     `json:"item_id" binding:"required"`  // 这里的item_id可以是PlanHeathItem的ID或HealthItem的ID
+		ItemID    int     `json:"item_id" binding:"required"` // 这里的item_id可以是PlanHeathItem的ID或HealthItem的ID
 		ItemValue *string `json:"item_value" binding:"required"`
 	}
 
@@ -109,7 +109,7 @@ func AddUserDateByPlanID(ctx *gin.Context) {
 		// 获取健康项目ID（如果提供的是PlanHeathItem的ID，需要先查询对应的HealthItem ID）
 		var healthItemID uint
 		var planHeathItem models.PlanHeathItem
-		
+
 		// 尝试作为PlanHeathItem的ID查询
 		if err := global.DB.First(&planHeathItem, item.ItemID).Error; err == nil {
 			// 找到了匹配的PlanHeathItem
@@ -139,9 +139,9 @@ func AddUserDateByPlanID(ctx *gin.Context) {
 
 		// 通过customerID、planID和healthItemID查找userhealthitem表中对应的记录
 		var userHealthItem models.UserHealthItem
-		result := global.DB.Where("user_id = ? AND plan_id = ? AND health_item_id = ?", 
+		result := global.DB.Where("user_id = ? AND plan_id = ? AND health_item_id = ?",
 			customerIDUint, planIDUint, healthItemID).First(&userHealthItem)
-		
+
 		// 如果不存在记录，则创建新记录
 		if result.Error != nil {
 			userHealthItem = models.UserHealthItem{

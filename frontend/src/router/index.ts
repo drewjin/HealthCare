@@ -103,6 +103,18 @@ const router = createRouter({
     //   component: () => import('@/views/OcrView.vue'),
     //   meta: { requiresAuth: true }
     // }
+    {
+      path: '/archive-manager',
+      name: 'archive-manager',
+      component: () => import('@/views/ArchiveManagerView.vue'),
+      meta: { requiresAuth: true, userTypes: [3, 2] }
+    },
+    {
+      path: '/comment-manager',
+      name: 'comment-manager',
+      component: () => import('@/views/CommentManagerView.vue'),
+      meta: { requiresAuth: true, userTypes: [3, 2] }
+    },
   ]
 })
 

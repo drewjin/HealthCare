@@ -1,8 +1,9 @@
 package controllers
 
 import (
-	"healthcare/global"
-	"healthcare/models"
+	"HealthCare/backend/controllers/utils"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,7 +12,7 @@ import (
 // GetAllHealthItems 获取所有健康检查项目
 func GetAllHealthItems(ctx *gin.Context) {
 	var healthItems []models.HealthItem
-	
+
 	// 支持关键词搜索
 	keyword := ctx.Query("keyword")
 	if keyword != "" {
@@ -35,10 +36,37 @@ func GetAllHealthItems(ctx *gin.Context) {
 	})
 }
 
+// oy
+func GetAllHealthItemsList(ctx *gin.Context) {
+	var items []map[string]interface{}
+
+	global.DB.
+		Table("health_items").
+		Scan(&items)
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"items": items,
+	})
+
+}
+func GetAllHealthItemsByID(ctx *gin.Context) {
+	userID := ctx.Param("id")
+	thisUserID, _ := utils.UnmarshalUint(userID)
+
+	var items []map[string]interface{}
+
+	rawSQL := "SELECT * FROM health_items WHERE user_id = ?"
+	global.DB.Raw(rawSQL, thisUserID).Scan(&items)
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"items": items,
+	})
+}
+
 // GetHealthItemByID 获取指定ID的健康检查项目
 func GetHealthItemByID(ctx *gin.Context) {
 	itemID := ctx.Param("id")
-	
+
 	var healthItem models.HealthItem
 	if err := global.DB.First(&healthItem, itemID).Error; err != nil {
 		ctx.JSON(http.StatusNotFound, gin.H{
@@ -46,7 +74,7 @@ func GetHealthItemByID(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	// 获取关联的套餐信息
 	var plans []struct {
 		PlanID          uint    `json:"PlanID"`
@@ -54,15 +82,15 @@ func GetHealthItemByID(ctx *gin.Context) {
 		ItemDescription string  `json:"ItemDescription"`
 		PlanPrice       float64 `json:"PlanPrice"`
 	}
-	
+
 	global.DB.Table("plan_heath_items").
 		Select("plan_heath_items.plan_id as PlanID, plans.plan_name as PlanName, plan_heath_items.item_description as ItemDescription, plans.plan_price as PlanPrice").
 		Joins("JOIN plans ON plans.id = plan_heath_items.plan_id").
 		Where("plan_heath_items.health_item_id = ?", itemID).
 		Find(&plans)
-	
+
 	ctx.JSON(http.StatusOK, gin.H{
-		"item": healthItem,
+		"item":  healthItem,
 		"plans": plans,
 	})
 }
@@ -70,18 +98,18 @@ func GetHealthItemByID(ctx *gin.Context) {
 // UpdateHealthItem 更新健康检查项目
 func UpdateHealthItem(ctx *gin.Context) {
 	itemID := ctx.Param("id")
-	
+
 	var input struct {
 		ItemName string `json:"item_name"`
 	}
-	
+
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "无效的请求数据",
 		})
 		return
 	}
-	
+
 	// 更新健康检查项目
 	if err := global.DB.Model(&models.HealthItem{}).Where("id = ?", itemID).Update("item_name", input.ItemName).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
@@ -89,7 +117,7 @@ func UpdateHealthItem(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "健康检查项目已更新",
 	})
@@ -98,18 +126,18 @@ func UpdateHealthItem(ctx *gin.Context) {
 // UpdatePlanItemDescription 更新套餐中项目的描述
 func UpdatePlanItemDescription(ctx *gin.Context) {
 	var input struct {
-		PlanID uint `json:"plan_id" binding:"required"`
-		ItemID uint `json:"item_id" binding:"required"`
+		PlanID          uint   `json:"plan_id" binding:"required"`
+		ItemID          uint   `json:"item_id" binding:"required"`
 		ItemDescription string `json:"item_description"`
 	}
-	
+
 	if err := ctx.ShouldBindJSON(&input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": "无效的请求数据",
 		})
 		return
 	}
-	
+
 	// 更新套餐项目描述
 	if err := global.DB.Model(&models.PlanHeathItem{}).
 		Where("plan_id = ? AND health_item_id = ?", input.PlanID, input.ItemID).
@@ -119,7 +147,7 @@ func UpdatePlanItemDescription(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "项目描述已更新",
 	})

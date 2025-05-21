@@ -1,9 +1,9 @@
 package utils
 
 import (
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"errors"
-	"healthcare/global"
-	"healthcare/models"
 	"strconv"
 
 	"gorm.io/gorm"
