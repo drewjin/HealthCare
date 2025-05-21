@@ -178,7 +178,8 @@ const saveItemChanges = async () => {
   try {
     const token = localStorage.getItem('jwt')
     // 修改
-    if(editForm.ID) {
+    if (editForm.ID) {
+      console.log('editForm:', editForm)
       await axios.post(`/api/users/update_use_health_item`, {
         id: editForm.ID,
         user_health_info: editForm.UserHealthInfo

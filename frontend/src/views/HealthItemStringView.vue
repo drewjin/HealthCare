@@ -57,12 +57,17 @@ const parseHealthItemString = (str: string): Record<string, string> => {
   const result: Record<string, string> = {}
   if (!str) return result
   
-  // 简单解析，可以替换为正则表达式
-  const pairs = str.split(',')
+  // 增强解析，支持多种分隔符（逗号和分号）
+  const pairs = str.split(/[;,]/)
   for (const pair of pairs) {
-    const [key, value] = pair.split(':')
-    if (key) {
-      result[key.trim()] = value ? value.trim() : ''
+    // 匹配各种格式的健康指标，如"指标名:值"或"指标名：值"
+    const match = pair.match(/([^:：]+)[：:]?(.*)/);
+    if (match && match[1]) {
+      const key = match[1].trim();
+      const value = match[2] ? match[2].trim() : '';
+      if (key) {
+        result[key] = value;
+      }
     }
   }
   

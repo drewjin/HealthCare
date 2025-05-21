@@ -6,6 +6,7 @@ import (
 	"HealthCare/backend/models"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -81,10 +82,14 @@ func CreateHealthItem(ctx *gin.Context) {
 			})
 		}
 	}()
+	itemNameAndUserInfo := strings.Split(input.UserHealthInfo, "|")
+
+	itemName := itemNameAndUserInfo[0]
+	userInfo := itemNameAndUserInfo[1]
 
 	// 执行插入操作
-	result := tx.Exec(`INSERT INTO health_items (user_id, user_health_info) VALUES (?, ?)`,
-		input.UserID, input.UserHealthInfo)
+	result := tx.Exec(`INSERT INTO health_items (user_id, user_health_info, item_name) VALUES (?, ?, ?)`,
+		input.UserID, userInfo, itemName)
 
 	if result.Error != nil {
 		tx.Rollback()
@@ -198,6 +203,8 @@ func UpdateUserHealthItem(ctx *gin.Context) {
 		return
 	}
 
+	// fmt.Print(input.ID, "\n")
+
 	// 开启事务
 	tx := global.DB.Begin()
 	defer func() {
@@ -209,7 +216,18 @@ func UpdateUserHealthItem(ctx *gin.Context) {
 		}
 	}()
 
-	// 执行更新操作
+	// fmt.Println("检查ID是否存在")
+	// var originalInfo string
+	// if err := tx.Raw("SELECT user_health_info FROM health_items WHERE id = ?", input.ID).Scan(&originalInfo).Error; err != nil {
+	// 	tx.Rollback()
+	// 	ctx.JSON(http.StatusInternalServerError, gin.H{"error": "查询原始数据失败: " + err.Error()})
+	// 	return
+	// }
+	// fmt.Printf("原始值为: %s\n", originalInfo)
+
+	// // 执行更新操作
+	// fmt.Println("修改")
+	
 	result := tx.Exec(`UPDATE health_items SET user_health_info = ? WHERE id = ?`,
 		input.UserHealthInfo, input.ID)
 

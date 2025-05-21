@@ -57,7 +57,7 @@ func GetAllHealthItemsByID(ctx *gin.Context) {
 
 	rawSQL := "SELECT * FROM health_items WHERE user_id = ?"
 	global.DB.Raw(rawSQL, thisUserID).Scan(&items)
-
+	// fmt.Printf("items: %v\n", items)
 	ctx.JSON(http.StatusOK, gin.H{
 		"items": items,
 	})

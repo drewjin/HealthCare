@@ -96,6 +96,12 @@ const router = createRouter({
       component: () => import('@/views/UserPackageManagerView.vue'),
       meta: { requiresAuth: true, userTypes: [3, 2] } // Only institution users and admins
     },
+    {
+      path: '/family-health/:id',
+      name: 'family-health',
+      component: () => import('@/views/FamilyHealthRecordsView.vue'),
+      meta: { requiresAuth: true, userTypes: [1] } // Only normal users
+    },
     // OCR function is now integrated into the dashboard
     // {
     //   path: '/ocr',

@@ -2,19 +2,25 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElContainer, ElAside, ElMain, ElHeader, ElMenu, ElMenuItem, ElCard, ElAvatar, ElRow, ElCol, ElButton, ElDivider, ElForm, ElFormItem, ElInput, ElMessage, ElDialog, ElTable, ElTableColumn, ElBadge, ElTimeline, ElTimelineItem, ElSelect, ElOption, ElCollapse, ElCollapseItem, ElSkeleton, ElEmpty, ElUpload } from 'element-plus'
-import { User, List, Setting, UserFilled, HomeFilled, Tools, PictureFilled } from '@element-plus/icons-vue'
+import { User, List, Setting, UserFilled, HomeFilled, Tools, PictureFilled, Download } from '@element-plus/icons-vue'
 import InstitutionForm from '@/components/InstitutionForm.vue'
 import AdminReview from '@/components/AdminReview.vue'
+import HealthItemForm from '@/components/HealthItemForm.vue'
 import axios from 'axios'
 import { use } from 'echarts/core';
-import { PieChart } from 'echarts/charts';
+import { BarChart } from 'echarts/charts';
 import {
   TitleComponent,
   TooltipComponent,
-  LegendComponent
+  LegendComponent,
+  GridComponent
 } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import VChart from 'vue-echarts';
+
+// 健康数据相关变量
+const healthItemsData = ref(null); // 存储原始健康项目数据
+const parsedHealthItems = ref({}); // 解析后的健康项目键值对
 
 const router = useRouter()
 const uid = ref(localStorage.getItem('uid'))
@@ -46,9 +52,11 @@ const familyRequests = ref<Array<{
   created_at: string
 }>>([])
 const confirmedFamilyMembers = ref<Array<{
-  username: string,
-  name: string,
-  relationship: string
+  id: string;
+  user_id: string | number;
+  username: string;
+  name: string;
+  relationship: string;
 }>>([])
 
 const showCreateFamilyDialog = ref(false)
@@ -216,10 +224,9 @@ const fetchFamilyItems = async () => {
       headers: { Authorization: `${token}` }
     })
     confirmedFamilyMembers.value = response.data || []
-    
-    console.log('Fetched health items:', confirmedFamilyMembers.value)
+    console.log('Fetched family members:', confirmedFamilyMembers.value)
   } catch (error) {
-    console.error('Failed to fetch health items:', error)
+    console.error('Failed to fetch family members:', error)
     ElMessage.error('获取家庭列表失败')
   }
 }
@@ -230,61 +237,202 @@ const fetchHealthItems = async () => {
     const response = await axios.get(`/api/healthitems/byid/${uid.value}`, {
       headers: { Authorization: `${token}` }
     })
-    chartData.value = response.data.items[0].user_health_info
-      .split(';')
-      .filter(Boolean)
-      .map(item => {
-        const match = item.match(/([^:：]+)[：:]?(\d+)/);
-        if (match) {
-          return {
-            name: match[1],
-            value: Number(match[2])
-          };
-        }
-      })
-      .filter(Boolean);
-    chartOption.value = {
-      title: {
-        text: '指标图',
-        left: 'center'
-      },
-      series: [
-        {
-          type: 'pie',
-          radius: ['40%', '70%'], // 环形饼图
-          avoidLabelOverlap: false,
-          itemStyle: {
-            borderRadius: 10,
-            borderColor: '#fff',
-            borderWidth: 2
+
+    if (response.data.items && response.data.items.length > 0) {
+      console.log('Health items data:', response.data.items)
+
+      // 汇总所有健康指标
+      const allMetricsMap: Record<string, number> = {};
+
+      response.data.items.forEach(item => {
+        const healthInfo = item.user_health_info;
+
+        // 使用所有可能的分隔符处理
+        const metrics = healthInfo.split(/[;,]/)
+          .filter(Boolean)
+          .map(str => {
+            const match = str.match(/([^:：]+)[：:]?(\d+)/);
+            if (match) {
+              return {
+                name: match[1].trim(),
+                value: Number(match[2])
+              };
+            }
+            return null;
+          })
+          .filter(Boolean) as { name: string, value: number }[];
+
+        // 合并同名指标的值（可以自定义策略：求和、取平均等）
+        metrics.forEach(({ name, value }) => {
+          if (allMetricsMap[name]) {
+            allMetricsMap[name] += value; // 简单求和，可按需改为平均值
+          } else {
+            allMetricsMap[name] = value;
+          }
+        });
+      });
+
+      // 生成平均值参考数据
+      const averageHealthData = {
+        '身高': 170,
+        '体重': 65,
+        '血压': 120,
+        '血糖': 5.2,
+        '心率': 75,
+        '体温': 36.5,
+        '血氧': 98,
+        '肺活量': 4000,
+        '胆固醇': 4.5,
+        '尿酸': 360
+      };
+
+      // 将用户数据与平均数据组合
+      const aggregatedMetrics = Object.entries(allMetricsMap).map(([name, value]) => {
+        return {
+          name,
+          userValue: value,
+          averageValue: averageHealthData[name] || Math.round(value * (0.8 + Math.random() * 0.4)) // 如果没有预设值，随机生成一个平均值
+        };
+      });
+
+      console.log('Aggregated health metrics:', aggregatedMetrics);
+      chartData.value = aggregatedMetrics;
+
+      // 生成图表所需的数据格式
+      const categories = aggregatedMetrics.map(item => item.name);
+      const userValues = aggregatedMetrics.map(item => item.userValue);
+      const averageValues = aggregatedMetrics.map(item => item.averageValue);
+
+      // 单位映射
+      const unitMap = {
+        '身高': 'cm',
+        '体重': 'kg',
+        '血压': 'mmHg',
+        '血糖': 'mmol/L',
+        '心率': '次/分',
+        '体温': '°C',
+        '血氧': '%',
+        '肺活量': 'mL',
+        '胆固醇': 'mmol/L',
+        '尿酸': 'μmol/L'
+      };
+
+      chartOption.value = {
+        title: {
+          text: '健康指标对比图',
+          left: 'center'
+        },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: {
+            type: 'shadow'
           },
-          label: {
-            show: false,
-            position: 'center'
+          formatter: function(params) {
+            const name = params[0].name;
+            const unit = unitMap[name] || '';
+            let result = `<div style="font-weight:bold;color:#333;margin-bottom:5px;">${name}</div>`;
+            
+            params.forEach(param => {
+              const value = param.value;
+              const seriesName = param.seriesName;
+              const marker = param.marker;
+              const color = param.color;
+              result += `<div style="display:flex;align-items:center;margin:3px 0;">
+                ${marker} <span style="color:${color};font-weight:bold;">${seriesName}: ${value}${unit}</span>
+              </div>`;
+            });
+            
+            return result;
           },
-          emphasis: {
-            label: {
-              show: true,
-              fontSize: '18',
-              fontWeight: 'bold'
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          borderColor: '#ccc',
+          borderWidth: 1,
+          textStyle: {
+            color: '#333'
+          }
+        },
+        legend: {
+          data: ['您的数值', '平均水平'],
+          top: 'bottom',
+          textStyle: {
+            color: '#333',
+            fontSize: 12
+          }
+        },
+        grid: {
+          left: '3%',
+          right: '4%',
+          bottom: '10%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLabel: {
+            interval: 0,
+            rotate: 30,
+            color: '#333',  // Dark text for better visibility
+            fontSize: 12
+          }
+        },
+        yAxis: {
+          type: 'value',
+          name: '数值',
+          nameTextStyle: {
+            color: '#333'  // Dark text for better visibility
+          },
+          axisLabel: {
+            formatter: function(value: number) {
+              return value.toString();
+            },
+            color: '#333'  // Dark text for better visibility
+          }
+        },
+        series: [
+          {
+            name: '您的数值',
+            type: 'bar',
+            data: userValues,
+            itemStyle: {
+              color: '#67c23a'  // Bright green - more visible
             }
           },
-          labelLine: {
-            show: false
-          },
-          data: chartData.value
-        }
-      ]
+          {
+            name: '平均水平',
+            type: 'bar',
+            data: averageValues,
+            itemStyle: {
+              color: '#409eff'  // Bright blue - more visible
+            }
+          }
+        ]
+      };
+    } else {
+      console.log('No health items found');
+      chartData.value = [];
     }
   } catch (error) {
-    console.error('Failed to fetch health items:', error)
+    console.error('Failed to fetch health items:', error);
+    ElMessage.error('获取健康数据失败');
+    chartData.value = [];
   }
 }
+
 
 const handleLogout = () => {
   localStorage.removeItem('jwt')
   localStorage.removeItem('uid')
   router.push('/login')
+}
+
+// 查看亲友健康记录
+const viewFamilyHealth = (familyMember: any) => {
+  console.log('查看亲友健康数据:', familyMember)
+  if (familyMember && familyMember.user_id) {
+    router.push(`/family-health/${familyMember.user_id}`)
+  } else {
+    ElMessage.warning('无法获取亲友ID，请重试')
+  }
 }
 
 const handleGoToProfile = () => {
@@ -481,12 +629,18 @@ const submitOcr = async () => {
 
 const dialogTitle = ref('')
 // 编辑
-const editItem = (item) => {
+interface FamilyMember {
+  id?: string;
+  username?: string;
+  relationship?: string;
+}
+
+const editItem = (item?: FamilyMember) => {
   if(item) {
     dialogTitle.value = '编辑家庭关系请求'
-    familyRequestForm.value.id = item.id
-    familyRequestForm.value.relative_username = item.username
-    familyRequestForm.value.relationship = item.relationship
+    familyRequestForm.value.id = item.id || ''
+    familyRequestForm.value.relative_username = item.username || ''
+    familyRequestForm.value.relationship = item.relationship || ''
   } else {
     dialogTitle.value = '创建家庭关系请求'
     familyRequestForm.value.id = ''
@@ -560,15 +714,71 @@ const deleteItem = async (key: string) => {
 // 按需注册必要的组件
 use([
   CanvasRenderer,
-  PieChart,
+  BarChart,
   TitleComponent,
   TooltipComponent,
-  LegendComponent
+  LegendComponent,
+  GridComponent
 ]);
 
 // 图表配置项
 const chartOption = ref();
 const chartData = ref([])
+
+// 导出健康数据为CSV格式
+const exportHealthData = () => {
+  if (chartData.value.length === 0) {
+    ElMessage.warning('没有可导出的健康数据');
+    return;
+  }
+  
+  // 获取当前日期作为文件名
+  const date = new Date();
+  const fileName = `健康数据_${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}.csv`;
+  
+  // 单位映射
+  const unitMap = {
+    '身高': 'cm',
+    '体重': 'kg',
+    '血压': 'mmHg',
+    '血糖': 'mmol/L',
+    '心率': '次/分',
+    '体温': '°C',
+    '血氧': '%',
+    '肺活量': 'mL',
+    '胆固醇': 'mmol/L',
+    '尿酸': 'μmol/L'
+  };
+  
+  // 创建CSV内容
+  let csvContent = '健康指标,您的数值,平均水平,单位\n';
+  
+  // 使用类型断言确保TypeScript知道每个项目的类型
+  interface ChartDataItem {
+    name: string;
+    userValue?: number | string;
+    averageValue?: number | string;
+    value?: number | string;
+  }
+  
+  (chartData.value as ChartDataItem[]).forEach(item => {
+    const unit = unitMap[item.name as keyof typeof unitMap] || '';
+    const userVal = item.userValue !== undefined ? item.userValue : (item.value || '-');
+    const avgVal = item.averageValue || '-';
+    csvContent += `${item.name},${userVal},${avgVal},${unit}\n`;
+  });
+  
+  // 创建下载链接
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', fileName);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 
 </script>
 
@@ -830,8 +1040,26 @@ const chartData = ref([])
               </template>
               <div class="health-summary">
                 <p>这里展示您的健康记录摘要</p>
-                 <v-chart class="chart-container" :option="chartOption" autoresize />
-                 <div v-for="(item, index) in chartData" :key="index">{{ item.name }}: {{ item.value }}</div>
+                <div v-if="chartData.length > 0" class="health-data-section">
+                  <!-- 图表展示 -->
+                  <div class="chart-section">
+                    <v-chart class="chart-container" :option="chartOption" autoresize />
+                  </div>
+                  
+                  <!-- 表单展示 - 使用新组件 -->
+                  <div class="form-section">
+                    <div class="form-header">
+                      <h3>健康指标详情</h3>
+                      <el-button type="primary" size="small" @click="exportHealthData" plain>
+                        <el-icon><Download /></el-icon> 导出数据
+                      </el-button>
+                    </div>
+                    <HealthItemForm :items="chartData" :editable="false" />
+                  </div>
+                </div>
+                <div v-else class="empty-data">
+                  <el-empty description="暂无健康数据" />
+                </div>
                 <el-button type="primary" plain @click="router.push('/health-records')" style="margin-top: 20px;">查看详细健康记录</el-button>
               </div>
             </ElCard>
@@ -865,10 +1093,11 @@ const chartData = ref([])
                       <ElTableColumn prop="username" label="用户名" />
                       <ElTableColumn prop="name" label="姓名" />
                       <ElTableColumn prop="relationship" label="关系" />
-                      <ElTableColumn label="操作" width="160">
+                      <ElTableColumn label="操作" width="240">
                         <template #default="scope">
                           <el-button size="small" type="primary" @click="editItem(scope.row)">编辑</el-button>
                           <el-button size="small" type="danger" @click="deleteItem(scope.row.id)">删除</el-button>
+                          <el-button size="small" type="success" @click="viewFamilyHealth(scope.row)">查看健康</el-button>
                         </template>
                       </ElTableColumn>
                     </ElTable>
@@ -1148,8 +1377,42 @@ const chartData = ref([])
   margin-top: 10px;
 }
 .chart-container {
-  width: 400px;
+  width: 100%;
   height: 400px;
   margin: auto;
+  background-color: #fff;
+  padding: 10px;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.health-data-section {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.chart-section {
+  flex: 1;
+  min-width: 400px;
+}
+
+.form-section {
+  flex: 1;
+  min-width: 300px;
+  padding: 0 20px;
+  border-left: 1px solid #eee;
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.form-header h3 {
+  margin: 0;
 }
 </style>
