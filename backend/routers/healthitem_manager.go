@@ -1,8 +1,8 @@
 package routers
 
 import (
-	"healthcare/controllers"
-	"healthcare/middlewares"
+	"HealthCare/backend/controllers"
+	"HealthCare/backend/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,13 +14,13 @@ func SetupHealthItemManagerRouter(r *gin.Engine) {
 	{
 		// 创建健康项目模板
 		healthItemManager.POST("/template", controllers.CreateHealthItemTemplate)
-		
+
 		// 保存健康项目模板到数据库
 		healthItemManager.POST("/save-template", controllers.SaveHealthItemTemplate)
-		
+
 		// 更新健康项目值
 		healthItemManager.PUT("/values", controllers.UpdateHealthItemValues)
-		
+
 		// 获取健康项目解析后的键值对
 		healthItemManager.GET("/values/:id", controllers.GetHealthItemValues)
 	}

@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"healthcare/global"
-	"healthcare/models"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -88,6 +88,21 @@ func GetCommentaryByPlanID(ctx *gin.Context) {
 	planID := ctx.Param("id")
 	var commentaries []models.Commentary
 	if err := global.DB.Where("plan_id = ?", planID).Find(&commentaries).Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to retrieve commentaries",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"commentaries": commentaries,
+	})
+}
+
+// 查看评论(所有) oy
+func GetCommentaryList(ctx *gin.Context) {
+	var commentaries []models.Commentary
+	if err := global.DB.Find(&commentaries).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to retrieve commentaries",
 		})

@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"healthcare/global"
-	"healthcare/models"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

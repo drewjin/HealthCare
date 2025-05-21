@@ -1,7 +1,7 @@
 package routers
 
 import (
-	"healthcare/middlewares"
+	"HealthCare/backend/middlewares"
 
 	"github.com/gin-gonic/gin"
 )

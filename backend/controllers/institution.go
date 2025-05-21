@@ -1,11 +1,11 @@
 package controllers
 
 import (
+	"HealthCare/backend/controllers/utils"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"errors"
 	"fmt"
-	"healthcare/controllers/utils"
-	"healthcare/global"
-	"healthcare/models"
 	"net/http"
 	"strconv"
 	"strings"
@@ -328,11 +328,11 @@ func CreateInstitutionPlans(ctx *gin.Context) {
 
 	var newHealthItem models.HealthItem
 	newHealthItem.ItemName = input.HealthItem
-	
+
 	// 先检查健康项目是否已存在
 	var existingItem models.HealthItem
 	findErr := global.DB.Where("item_name = ?", input.HealthItem).First(&existingItem).Error
-	
+
 	// 如果已存在，则使用现有的健康项目
 	if findErr == nil {
 		fmt.Printf("Found existing health item with ID: %d\n", existingItem.ID)
@@ -675,7 +675,7 @@ func DeleteInstitutionPlan(ctx *gin.Context) {
 		})
 		return
 	}
-	
+
 	if userPackagesCount > 0 {
 		if err := tx.Unscoped().Where("plan_id = ?", input.PlanID).Delete(&models.UserPackage{}).Error; err != nil {
 			tx.Rollback()
@@ -743,13 +743,13 @@ func DeleteInstitutionPlan(ctx *gin.Context) {
 	// Fetch the plan to be deleted
 	var plan models.Plan
 	if err := tx.Where("id = ?", input.PlanID).First(&plan).Error; err != nil {
-	    tx.Rollback()
-	    if errors.Is(err, gorm.ErrRecordNotFound) {
-	        ctx.JSON(http.StatusNotFound, gin.H{"error": "套餐不存在"})
-	    } else {
-	        ctx.JSON(http.StatusInternalServerError, gin.H{"error": "查找套餐失败: " + err.Error()})
-	    }
-	    return
+		tx.Rollback()
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "套餐不存在"})
+		} else {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "查找套餐失败: " + err.Error()})
+		}
+		return
 	}
 
 	// Finally, delete the Plan itself (Hard Delete)
@@ -757,26 +757,26 @@ func DeleteInstitutionPlan(ctx *gin.Context) {
 		tx.Rollback()
 		// Log the detailed error for debugging
 		fmt.Printf("Error when deleting plan ID %d: %s\n", input.PlanID, err.Error())
-		
+
 		// Check if it's a foreign key constraint error
 		if strings.Contains(err.Error(), "foreign key constraint fails") {
 			// Try to identify which relations still exist
 			var remainingRelations string
-			
+
 			// Check for user packages
 			var pkgCount int64
 			tx.Model(&models.UserPackage{}).Where("plan_id = ?", input.PlanID).Count(&pkgCount)
 			if pkgCount > 0 {
 				remainingRelations += fmt.Sprintf("用户套餐关联(%d) ", pkgCount)
 			}
-			
+
 			// Check for user health items
 			var itemCount int64
 			tx.Model(&models.UserHealthItem{}).Where("plan_id = ?", input.PlanID).Count(&itemCount)
 			if itemCount > 0 {
 				remainingRelations += fmt.Sprintf("用户健康项目(%d) ", itemCount)
 			}
-			
+
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"error": "删除套餐失败: 存在外键约束，请先删除套餐相关的" + remainingRelations,
 			})

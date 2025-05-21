@@ -1,8 +1,8 @@
 package controllers
 
 import (
-	"healthcare/global"
-	"healthcare/models"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"net/http"
 	"strconv"
 
@@ -126,7 +126,7 @@ func GetUserPackagesByInstitution(c *gin.Context) {
 		// 获取用户已完成的项目数
 		var completedItems int64
 		if err := global.DB.Model(&models.UserHealthItem{}).
-			Where("user_id = ? AND plan_id = ? AND item_value != ''", 
+			Where("user_id = ? AND plan_id = ? AND item_value != ''",
 				userPackages[i].UserID, userPackages[i].PlanID).
 			Count(&completedItems).Error; err != nil {
 			continue

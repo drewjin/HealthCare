@@ -1,8 +1,8 @@
 package middlewares
 
 import (
+	"HealthCare/backend/config"
 	"fmt"
-	"healthcare/config"
 	"time"
 
 	"github.com/gin-contrib/cors"

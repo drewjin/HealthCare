@@ -1,10 +1,10 @@
 package controllers
 
 import (
+	"HealthCare/backend/controllers/utils"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"errors"
-	"healthcare/controllers/utils"
-	"healthcare/global"
-	"healthcare/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -158,12 +158,18 @@ func GetConfirmedFamilyMembers(ctx *gin.Context) {
 		if rel.UserID == thisUserID {
 			member = gin.H{
 				"username": rel.Relative.Username,
+				"user_id":  rel.ThisUser.ID,
+				"id":       rel.Model.ID,
+				"rid":      rel.ID,
 				"name":     rel.Relative.Name,
 			}
 			relationship = rel.Relationship
 		} else {
 			member = gin.H{
 				"username": rel.ThisUser.Username,
+				"user_id":  rel.ThisUser.ID,
+				"id":       rel.Model.ID,
+				"rid":      rel.ID,
 				"name":     rel.ThisUser.Name,
 			}
 			relationship = reverseRelationship(rel.Relationship)
@@ -171,6 +177,9 @@ func GetConfirmedFamilyMembers(ctx *gin.Context) {
 		response = append(response, gin.H{
 			"username":     member["username"],
 			"name":         member["name"],
+			"user_id":      member["user_id"],
+			"id":           member["id"],
+			"rid":          member["rid"],
 			"relationship": relationship,
 		})
 	}
@@ -194,4 +203,114 @@ func reverseRelationship(relationship string) string {
 	default:
 		return relationship
 	}
+}
+
+// 删除授权状态 oy
+func DelFamilyStatus(ctx *gin.Context) {
+	rid := ctx.Param("id")
+	id, err := utils.UnmarshalUint(rid)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// 开启事务
+	tx := global.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "服务器内部错误",
+			})
+		}
+	}()
+
+	// 执行删除操作
+	result := tx.Exec(`DELETE FROM families WHERE id = ?`, id)
+	if result.Error != nil {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "删除授权状态失败: " + result.Error.Error(),
+		})
+		return
+	}
+
+	// 检查是否实际删除了记录
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "未找到对应的授权记录",
+		})
+		return
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "提交事务失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "删除授权状态成功",
+	})
+}
+
+// 修改亲友关系名字 oy
+func UpdateFamilyName(ctx *gin.Context) {
+	var input struct {
+		ID           uint   `json:"id" binding:"required"`
+		Relationship string `json:"relationship" binding:"required"`
+	}
+
+	// 绑定输入参数
+	if err := ctx.ShouldBindJSON(&input); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": "无效的请求数据: " + err.Error(),
+		})
+		return
+	}
+	// 开启事务
+	tx := global.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error": "服务器内部错误",
+			})
+		}
+	}()
+
+	// 执行更新操作
+	result := tx.Exec(`UPDATE families SET relationship = ? WHERE id = ?`,
+		input.Relationship, input.ID)
+
+	if result.Error != nil {
+		tx.Rollback()
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "修改亲友关系失败: " + result.Error.Error(),
+		})
+		return
+	}
+
+	// 检查是否实际更新了记录
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error": "未找到对应的亲友记录",
+		})
+		return
+	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "提交事务失败: " + err.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "修改亲友关系成功",
+	})
 }

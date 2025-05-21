@@ -1,8 +1,8 @@
 package routers
 
 import (
-	"healthcare/controllers"
-	"healthcare/middlewares"
+	"HealthCare/backend/controllers"
+	"HealthCare/backend/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,7 +16,7 @@ func SetupPlanRecoveryRouter(r *gin.Engine) {
 	{
 		// 获取已删除的套餐列表
 		planRecovery.GET("/deleted", controllers.GetDeletedPlans)
-		
+
 		// 恢复已删除的套餐
 		planRecovery.POST("/recover/:id", controllers.RecoverDeletedPlan)
 	}

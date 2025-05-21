@@ -1,10 +1,10 @@
 package controllers
 
 import (
+	"HealthCare/backend/controllers/utils"
+	"HealthCare/backend/global"
+	"HealthCare/backend/models"
 	"errors"
-	"healthcare/controllers/utils"
-	"healthcare/global"
-	"healthcare/models"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

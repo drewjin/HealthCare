@@ -1,9 +1,9 @@
 package main
 
 import (
+	"HealthCare/backend/config"
+	"HealthCare/backend/routers"
 	"fmt"
-	"healthcare/config"
-	"healthcare/routers"
 )
 
 func main() {
