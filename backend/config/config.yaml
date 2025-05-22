@@ -1,29 +1,29 @@
 app:
-  name: "HealthCare"
-  version: "0.0.1"
-  author: "drewjin"
-  backend-port: "3000"
-  frontend-port: "5173"
+  name: 'HealthCare'
+  version: '0.0.1'
+  author: 'drewjin'
+  backend-port: '3000'
+  frontend-port: '5173'
 
 database:
-  dsn: "root:12345678@tcp(127.0.0.1:3306)/healthcare_db?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: 'root:12345678@tcp(127.0.0.1:3306)/healthcare_db?charset=utf8mb4&parseTime=True&loc=Local'
   max-idle-conns: 11
   max-open-conns: 114
 
 relations:
-  - "Father-Son"
-  - "Father-Daughter"
-  - "Mother-Son"
-  - "Mother-Daughter"
-  - "GrandFather-GrandSon"
-  - "GrandFather-GrandDaughter"
-  - "GrandMother-GrandSon"
-  - "GrandMother-GrandDaughter"
+  - 'Father-Son'
+  - 'Father-Daughter'
+  - 'Mother-Son'
+  - 'Mother-Daughter'
+  - 'GrandFather-GrandSon'
+  - 'GrandFather-GrandDaughter'
+  - 'GrandMother-GrandSon'
+  - 'GrandMother-GrandDaughter'
 
 email:
-  host: "smtp.163.com"
+  host: 'smtp.163.com'
   port: 465
-  server-email: "Healthcare_SHU@163.com"
-  password: "Healthcare2025"
-  from: "Healthcare_SHU@163.com"
-  from-name: "Healthcare_SHU"
+  server-email: 'Healthcare_SHU@163.com'
+  password: 'Healthcare2025'
+  from: 'Healthcare_SHU@163.com'
+  from-name: 'Healthcare_SHU'

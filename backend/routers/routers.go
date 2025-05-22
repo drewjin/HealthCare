@@ -1,7 +1,7 @@
 package routers
 
 import (
-	"healthcare/middlewares"
+	"HealthCare/backend/middlewares"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,6 +14,19 @@ func SetupRouter() *gin.Engine {
 		SetupAuthRouter(routers)
 		SetupUserRouter(routers)
 		SetupFamilyRouter(routers)
+		SetupInstitutionRouter(routers)
+		SetupCommentaryRouter(routers)
+		SetupUserViewRouter(routers)
+		SetupAddUserDataRouter(routers)
+		SetupImageOcrRouter(routers)
+		SetupUserPlansRouter(routers)
+		SetupHealthItemsRouter(routers)
+		SetupHealthItemManagerRouter(routers)
+		SetupHealthItemPlanRouter(routers)
+		SetupInstitutionUserPackagesRouter(routers)
+		SetupPlanRecoveryRouter(routers)
+		SetupUserPackageStatusRouter(routers)
+		SetupUserPackageRouter(routers)
 	}
 	return routers
 }

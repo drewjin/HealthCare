@@ -1,0 +1,68 @@
+{
+  "healthRecords": [
+    {
+      "itemName": "血常规",
+      "itemValue": [
+        {
+          "name": "血红蛋白",
+          "value": "140",
+          "unit": "g/L",
+          "reference": "120-160",
+          "status": "正常"
+        },
+        {
+          "name": "白细胞",
+          "value": "6.5",
+          "unit": "10^9/L",
+          "reference": "4.0-10.0",
+          "status": "正常"
+        },
+        {
+          "name": "血小板",
+          "value": "250",
+          "unit": "10^9/L",
+          "reference": "100-300",
+          "status": "正常"
+        }
+      ]
+    },
+    {
+      "itemName": "肝功能",
+      "itemValue": [
+        {
+          "name": "ALT",
+          "value": "25",
+          "unit": "U/L",
+          "reference": "0-40",
+          "status": "正常"
+        },
+        {
+          "name": "AST",
+          "value": "35",
+          "unit": "U/L",
+          "reference": "0-40",
+          "status": "正常"
+        },
+        {
+          "name": "总胆红素",
+          "value": "12",
+          "unit": "μmol/L",
+          "reference": "3.4-20.5",
+          "status": "正常"
+        }
+      ]
+    },
+    {
+      "itemName": "血糖",
+      "itemValue": [
+        {
+          "name": "空腹血糖",
+          "value": "5.2",
+          "unit": "mmol/L",
+          "reference": "3.9-6.1",
+          "status": "正常"
+        }
+      ]
+    }
+  ]
+}

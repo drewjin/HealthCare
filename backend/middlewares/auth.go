@@ -1,12 +1,13 @@
 package middlewares
 
 import (
-	"healthcare/utils"
+	"HealthCare/backend/controllers/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
+// 检查用户是否登录，是否有token，权限
 func AuthMiddleWare() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		token := ctx.GetHeader("Authorization")
@@ -17,7 +18,7 @@ func AuthMiddleWare() gin.HandlerFunc {
 			ctx.Abort()
 			return
 		}
-		username, err := utils.ParseJWT(token)
+		username, userType, err := utils.ParseJWT(token)
 		if err != nil {
 			ctx.JSON(http.StatusUnauthorized, gin.H{
 				"error": "Invalid Token",
@@ -26,6 +27,7 @@ func AuthMiddleWare() gin.HandlerFunc {
 			return
 		}
 		ctx.Set("username", username)
+		ctx.Set("user_type", userType)
 		ctx.Next()
 	}
 }

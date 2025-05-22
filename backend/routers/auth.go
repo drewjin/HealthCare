@@ -1,7 +1,7 @@
 package routers
 
 import (
-	"healthcare/controllers"
+	"HealthCare/backend/controllers"
 
 	"github.com/gin-gonic/gin"
 )

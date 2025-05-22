@@ -13,13 +13,14 @@ func HashPassword(pwd string) (string, error) {
 	return string(hash), err
 }
 
-func GenerateJWT(username string) (string, error) {
+func GenerateJWT(username string, userType uint8) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": username,
-		"exp":      time.Now().Add(time.Hour * 72).Unix(),
+		"username":  username,
+		"user_type": userType,
+		"exp":       time.Now().Add(time.Hour * 72).Unix(),
 	})
 	signedToken, err := token.SignedString([]byte("secret"))
-	return "Bearer " + signedToken, err
+	return "" + signedToken, err
 }
 
 func CheckPassword(password string, hashedPwd string) bool {
@@ -27,7 +28,7 @@ func CheckPassword(password string, hashedPwd string) bool {
 	return err == nil
 }
 
-func ParseJWT(tokenString string) (string, error) {
+func ParseJWT(tokenString string) (string, uint8, error) {
 	if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
 		tokenString = tokenString[7:]
 	}
@@ -38,16 +39,14 @@ func ParseJWT(tokenString string) (string, error) {
 		return []byte("secret"), nil
 	})
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		username := claims["username"].(string)
-		if !ok {
-			return "", errors.New("username claim is not a string")
-		}
-		return username, nil
+		userType := uint8(claims["user_type"].(float64))
+		return username, userType, nil
 	}
 
-	return "", err
+	return "", 0, errors.New("invalid token")
 }
