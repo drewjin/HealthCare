@@ -5,6 +5,7 @@ import (
 	"HealthCare/backend/global"
 	"HealthCare/backend/models"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -71,6 +72,8 @@ func CreateHealthItem(ctx *gin.Context) {
 		})
 		return
 	}
+
+	fmt.Println(input)
 
 	// 开启事务
 	tx := global.DB.Begin()

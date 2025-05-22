@@ -77,6 +77,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import { en } from 'element-plus/es/locales.mjs'
 
 interface ArchiveItem {
   ID: number
@@ -289,7 +290,7 @@ const submitOcr = async () => {
     editForm.UserHealthInfo = rawOcrResults.map(entry => {
       const textToSplit = entry.item_value; // This is the string like "血压 124"
       console.log(`Processing entry.item_value: "${textToSplit}"`); 
-
+      
       const firstSpaceIndex = textToSplit.indexOf(' ');
       let newName = '';
       let newValue = '';
@@ -303,8 +304,8 @@ const submitOcr = async () => {
         newValue = ''; // Or you could set it to something like '-' or 'N/A' to indicate missing value
       }
       console.log(`Parsed to: name="${newName}", value="${newValue}"`); 
-      // return { item_name: newName, item_value: newValue };
-      return `${newName}: ${newValue}`;
+      // Format: "体检 | 血糖：200"
+      return `体检 | ${newName}：${newValue}`;
     });
 
   } catch (e) {
